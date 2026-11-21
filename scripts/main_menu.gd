@@ -313,6 +313,12 @@ Select peasants, choose a building and place it anywhere you like. Press R to ro
 [b][color=#ffd166]Combat[/color][/b]
 Spearmen counter knights. Archers, spearmen, towers and mages can strike flying dragons; swordsmen and knights cannot. Catapults wreck buildings. Clerics heal. Monster lairs guard rich gold, and killing monsters pays bounties.
 
+[b][color=#ffd166]Walls, Gates & Garrisons[/color][/b]
+Gates open for your units but stop enemies, who must break them down. Build one in a wall gap or select a wall section and press Make Gate. Units can garrison in the Town Hall (12) or Watch Towers (5): they heal and every one adds an arrow. Ring the Town Bell at your Town Hall to shelter all peasants, and press All Clear to send them back to work.
+
+[b][color=#ffd166]Upgrade Lines[/color][/b]
+Research upgrades at the barracks, stable, mage tower and dragon roost to promote every unit of a line, e.g. Swordsman to Longswordsman to Blademaster, Archer to Crossbowman to Arbalest, Knight to Paladin.
+
 [b][color=#ffd166]Champions[/color][/b]
 You lead a hero who levels up (to 10) from battle XP. Each level grants a skill point for one of four abilities; ultimates unlock at level 6. Fallen champions return to your Town Hall after a delay.
 [b]Warlord[/b]: Rallying Cry, Cleaving Leap, Iron Skin, Banner of Kings.  [b]Archmage[/b]: Meteor, Frost Nova, Arcane Ward, Arcane Storm.  [b]High Priestess[/b]: Mending Light, Smite, Divine Aegis, Holy Nova.

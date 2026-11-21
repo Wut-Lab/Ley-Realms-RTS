@@ -34,6 +34,8 @@ var threat_t := -100.0
 var recent := {}
 var rebalance_t := 0.0
 var rng := RandomNumberGenerator.new()
+var hidden_workers := 0
+var bell_t := -100.0
 
 
 func setup(g: Game, id: int, h: bool) -> void:
@@ -82,6 +84,10 @@ func _think(p: PlayerData) -> void:
 		elif u.is_military():
 			army.append(u)
 	var mine: Array = game.buildings_of(pid)
+	hidden_workers = 0
+	for u in game.garrisoned_of(pid):
+		if u.cls == "worker":
+			hidden_workers += 1
 	var th: Building = null
 	for b in mine:
 		if b.kind == "town_hall" and (th == null or b.complete):
@@ -107,7 +113,7 @@ func _target_peasants(p: PlayerData) -> int:
 
 
 func _economy(p: PlayerData, peasants: Array, mine: Array, th: Building) -> void:
-	if th and th.complete and th.queued_count("peasant") < 2 and peasants.size() + th.queued_count("peasant") < _target_peasants(p):
+	if th and th.complete and th.queued_count("peasant") < 2 and peasants.size() + hidden_workers + th.queued_count("peasant") < _target_peasants(p):
 		if not _saving(p) or p.res["food"] > _age_cost(p).get("food", 0) + 50:
 			th.enqueue("peasant")
 	var counts := {"food": 0, "wood": 0, "gold": 0, "mana": 0}
@@ -303,6 +309,10 @@ func _saving(p: PlayerData) -> bool:
 
 
 func _spend_ok(p: PlayerData, cost: Dictionary) -> bool:
+	# never spend the food needed to rebuild a collapsed workforce
+	var workers := game.count_units(pid, "peasant") + hidden_workers
+	if workers < 8 and cost.get("food", 0) > 0 and p.res["food"] - cost["food"] < 100:
+		return false
 	if not _saving(p):
 		return true
 	var ac := _age_cost(p)
@@ -368,6 +378,15 @@ func _military(p: PlayerData, army: Array, mine: Array) -> void:
 				threat = e
 				threat_t = game.elapsed
 				break
+	# Town Bell: shelter peasants from raids the army can't answer; all clear once it's quiet
+	if threat and not p.bell and threat.pos2().distance_to(base) < 24.0 and game.elapsed - bell_t > 30.0:
+		var raiders := game.area_targets(threat.pos2(), 10.0, pid).filter(func(e): return e is Unit and e.cls != "worker").size()
+		var defenders := army.filter(func(u): return u.pos2().distance_to(base) < 30.0).size()
+		if raiders >= 2 and defenders < raiders and (hard or rng.randf() < 0.4):
+			game.town_bell(pid)
+			bell_t = game.elapsed
+	elif p.bell and ((threat == null and game.elapsed - threat_t > 12.0) or game.elapsed - bell_t > 60.0):
+		game.all_clear(pid)
 	if threat:
 		for u in army:
 			if u in squad:

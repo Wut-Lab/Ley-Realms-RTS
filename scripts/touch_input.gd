@@ -135,6 +135,9 @@ func _tap(pos: Vector2) -> void:
 	if ctl.placing != "":
 		ctl.touch_place_tap(pos)
 		return
+	if ctl.garrison_pending:
+		ctl.try_garrison_at(pos)
+		return
 	if ctl.amove_pending:
 		ctl.amove_pending = false
 		var gp = game.cam.ground_at(pos)

@@ -132,7 +132,7 @@ const BUILDINGS := {
 		"name": "Town Hall", "desc": "Trains peasants, accepts all resources, researches ages. Shoots arrows.",
 		"hp": 2400, "size": 5.0, "cost": {"wood": 275, "gold": 150}, "time": 80, "age": 1, "pop": 10,
 		"dropoff": true, "trains": ["peasant", "warden"], "research": ["harvest_tools", "deep_mining", "age2", "age3"],
-		"atk": 5, "range": 8.0, "cooldown": 2.0, "sight": 12, "armor": 4, "parmor": 10, "height": 6.0,
+		"atk": 5, "range": 8.0, "cooldown": 2.0, "sight": 12, "armor": 4, "parmor": 10, "height": 6.0, "garrison": 12,
 	},
 	"house": {
 		"name": "House", "desc": "Provides +5 population.",
@@ -152,7 +152,8 @@ const BUILDINGS := {
 	"barracks": {
 		"name": "Barracks", "desc": "Trains swordsmen, spearmen and archers.",
 		"hp": 1300, "size": 4.2, "cost": {"wood": 160}, "time": 35, "age": 1,
-		"trains": ["swordsman", "spearman", "archer"], "sight": 6, "armor": 2, "parmor": 8, "height": 4.0,
+		"trains": ["swordsman", "spearman", "archer"],
+		"research": ["up_longsword", "up_blademaster", "up_pike", "up_halberd", "up_crossbow", "up_arbalest"], "sight": 6, "armor": 2, "parmor": 8, "height": 4.0,
 	},
 	"blacksmith": {
 		"name": "Blacksmith", "desc": "Researches weapon and armor upgrades.",
@@ -162,22 +163,27 @@ const BUILDINGS := {
 	"tower": {
 		"name": "Watch Tower", "desc": "Defensive tower that shoots arrows at enemies, including flyers.",
 		"hp": 900, "size": 2.0, "cost": {"wood": 60, "gold": 80}, "time": 30, "age": 1,
-		"atk": 7, "range": 9.0, "cooldown": 1.6, "sight": 11, "armor": 3, "parmor": 9, "height": 7.0,
+		"atk": 7, "range": 9.0, "cooldown": 1.6, "sight": 11, "armor": 3, "parmor": 9, "height": 7.0, "garrison": 5,
 	},
 	"wall": {
 		"name": "Stone Wall", "desc": "Cheap barrier. Click and drag to build a line of wall.",
 		"hp": 700, "size": 1.0, "cost": {"wood": 6, "gold": 2}, "time": 4, "age": 1,
 		"sight": 2, "armor": 6, "parmor": 12, "height": 2.4,
 	},
+	"gate": {
+		"name": "Gate", "desc": "Opens for your units, blocks enemies. Build in a wall gap, or convert a wall section.",
+		"hp": 900, "size": 1.0, "cost": {"wood": 20, "gold": 10}, "time": 10, "age": 1, "gate": true,
+		"sight": 3, "armor": 6, "parmor": 12, "height": 2.6,
+	},
 	"stable": {
 		"name": "Stable", "desc": "Trains knights.",
 		"hp": 1300, "size": 4.2, "cost": {"wood": 175, "gold": 40}, "time": 35, "age": 2,
-		"trains": ["knight"], "research": ["barding"], "sight": 6, "armor": 2, "parmor": 8, "height": 4.0,
+		"trains": ["knight"], "research": ["barding", "up_paladin"], "sight": 6, "armor": 2, "parmor": 8, "height": 4.0,
 	},
 	"mage_tower": {
 		"name": "Mage Tower", "desc": "Trains battle mages and clerics.",
 		"hp": 1100, "size": 3.4, "cost": {"wood": 120, "gold": 100, "mana": 40}, "time": 40, "age": 2,
-		"trains": ["mage", "cleric"], "research": ["arcane_focus"], "sight": 9, "armor": 2, "parmor": 8, "height": 8.0,
+		"trains": ["mage", "cleric"], "research": ["arcane_focus", "up_sorcerer", "up_hierophant"], "sight": 9, "armor": 2, "parmor": 8, "height": 8.0,
 	},
 	"workshop": {
 		"name": "Siege Workshop", "desc": "Builds catapults.",
@@ -187,12 +193,12 @@ const BUILDINGS := {
 	"dragon_roost": {
 		"name": "Dragon Roost", "desc": "Hatches dragons.",
 		"hp": 1800, "size": 5.0, "cost": {"wood": 200, "gold": 200, "mana": 150}, "time": 60, "age": 3,
-		"trains": ["dragon"], "sight": 8, "armor": 3, "parmor": 9, "height": 5.0,
+		"trains": ["dragon"], "research": ["up_elder_dragon"], "sight": 8, "armor": 3, "parmor": 9, "height": 5.0,
 	},
 }
 
 const BUILD_MENU := ["house", "farm", "storehouse", "barracks", "blacksmith", "tower", "wall",
-	"town_hall", "stable", "mage_tower", "workshop", "dragon_roost"]
+	"town_hall", "stable", "mage_tower", "workshop", "dragon_roost", "gate"]
 
 const TECHS := {
 	"age2": {"name": "Advance: Age of Steel", "desc": "Unlocks stables, mage towers, knights, mages, clerics and the hero.",
@@ -215,6 +221,37 @@ const TECHS := {
 		"cost": {"gold": 120, "mana": 150}, "time": 40, "age": 2},
 	"barding": {"name": "Horse Barding", "desc": "+40 hit points for knights.",
 		"cost": {"food": 150, "gold": 100}, "time": 35, "age": 2},
+	# ---- unit upgrade lines: upgrade every existing and future unit of the line
+	"up_longsword": {"name": "Longswordsman", "desc": "Upgrade Swordsmen to Longswordsmen: 115 HP, 11 attack, 3 armor.",
+		"cost": {"food": 200, "gold": 65}, "time": 40, "age": 2, "line": "swordsman", "tier": 1,
+		"stats": {"name": "Longswordsman", "hp": 115, "atk": 11, "armor": 3}},
+	"up_blademaster": {"name": "Blademaster", "desc": "Upgrade Longswordsmen to Blademasters: 145 HP, 14 attack, 4/2 armor.",
+		"cost": {"food": 300, "gold": 120}, "time": 55, "age": 3, "line": "swordsman", "tier": 2, "requires": "up_longsword",
+		"stats": {"name": "Blademaster", "hp": 145, "atk": 14, "armor": 4, "parmor": 2}},
+	"up_pike": {"name": "Pikeman", "desc": "Upgrade Spearmen to Pikemen: 90 HP, +18 vs cavalry, +10 vs flyers.",
+		"cost": {"food": 160, "gold": 90}, "time": 40, "age": 2, "line": "spearman", "tier": 1,
+		"stats": {"name": "Pikeman", "hp": 90, "atk": 6, "bonus": {"cavalry": 18, "flying": 10}}},
+	"up_halberd": {"name": "Halberdier", "desc": "Upgrade Pikemen to Halberdiers: 110 HP, 2 armor, +24 vs cavalry, +14 vs flyers.",
+		"cost": {"food": 250, "gold": 150}, "time": 55, "age": 3, "line": "spearman", "tier": 2, "requires": "up_pike",
+		"stats": {"name": "Halberdier", "hp": 110, "atk": 7, "armor": 2, "bonus": {"cavalry": 24, "flying": 14}}},
+	"up_crossbow": {"name": "Crossbowman", "desc": "Upgrade Archers to Crossbowmen: 50 HP, 6 attack, 7.5 range.",
+		"cost": {"food": 125, "gold": 75}, "time": 35, "age": 2, "line": "archer", "tier": 1,
+		"stats": {"name": "Crossbowman", "hp": 50, "atk": 6, "range": 7.5}},
+	"up_arbalest": {"name": "Arbalest", "desc": "Upgrade Crossbowmen to Arbalests: 60 HP, 7 attack, 8 range, 1 pierce armor.",
+		"cost": {"food": 300, "gold": 200}, "time": 50, "age": 3, "line": "archer", "tier": 2, "requires": "up_crossbow",
+		"stats": {"name": "Arbalest", "hp": 60, "atk": 7, "range": 8.0, "parmor": 1}},
+	"up_paladin": {"name": "Paladin", "desc": "Upgrade Knights to Paladins: 230 HP, 15 attack, 3/3 armor.",
+		"cost": {"food": 400, "gold": 250}, "time": 60, "age": 3, "line": "knight", "tier": 1,
+		"stats": {"name": "Paladin", "hp": 230, "atk": 15, "armor": 3, "parmor": 3}},
+	"up_sorcerer": {"name": "Sorcerer", "desc": "Upgrade Battle Mages to Sorcerers: 60 HP, 18 attack, larger blasts, 8.5 range.",
+		"cost": {"gold": 150, "mana": 200}, "time": 50, "age": 3, "line": "mage", "tier": 1,
+		"stats": {"name": "Sorcerer", "hp": 60, "atk": 18, "splash": 2.0, "range": 8.5}},
+	"up_hierophant": {"name": "Hierophant", "desc": "Upgrade Clerics to Hierophants: 65 HP, heals 13, 7 range.",
+		"cost": {"gold": 150, "mana": 150}, "time": 45, "age": 3, "line": "cleric", "tier": 1,
+		"stats": {"name": "Hierophant", "hp": 65, "heal": 13, "range": 7.0}},
+	"up_elder_dragon": {"name": "Elder Dragon", "desc": "Upgrade Dragons to Elder Dragons: 650 HP, 26 attack, 3/4 armor.",
+		"cost": {"gold": 400, "mana": 400}, "time": 70, "age": 3, "line": "dragon", "tier": 1,
+		"stats": {"name": "Elder Dragon", "hp": 650, "atk": 26, "armor": 3, "parmor": 4}},
 }
 
 

@@ -24,6 +24,7 @@ var cast_pending := -1
 var cast_ring: MeshInstance3D
 var last_champ_t := 0.0
 var touch_multi := false
+var garrison_pending := false
 var ghost_world = null
 var wall_end = null
 
@@ -395,6 +396,21 @@ func touch_cast(screen: Vector2) -> void:
 	cancel_cast()
 
 
+func try_garrison_at(screen: Vector2) -> void:
+	garrison_pending = false
+	var e = pick(screen, false)
+	if e is Building and e.pid == game.human and e.alive and e.complete and e.capacity() > 0:
+		var n := game.send_to_shelter(own_units(), game.human, e)
+		if n == 0:
+			game.hud.message("No room inside.", Color(1, 0.6, 0.4))
+			Sfx.play("error", -6.0)
+		else:
+			Sfx.play("order", -8.0)
+	else:
+		game.hud.message("Choose your Town Hall or a Watch Tower.", Color(1, 0.6, 0.4))
+		Sfx.play("error", -6.0)
+
+
 func select_army() -> void:
 	var army: Array = game.units.filter(func(u): return u.alive and u.pid == game.human and u.cls != "worker")
 	if army.is_empty():
@@ -471,6 +487,9 @@ func _unhandled_input(event: InputEvent) -> void:
 					else:
 						_try_place(mb.position, mb.shift_pressed)
 					return
+				if garrison_pending:
+					try_garrison_at(mb.position)
+					return
 				if amove_pending:
 					amove_pending = false
 					var gp = _cam().ground_at(mb.position)
@@ -506,8 +525,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			if placing != "":
 				cancel_place()
 				return
-			if amove_pending:
+			if amove_pending or garrison_pending:
 				amove_pending = false
+				garrison_pending = false
 				return
 			_right_click(mb.position)
 		return
@@ -544,8 +564,9 @@ func _key(e: InputEventKey) -> void:
 			cancel_cast()
 		elif placing != "":
 			cancel_place()
-		elif amove_pending:
+		elif amove_pending or garrison_pending:
 			amove_pending = false
+			garrison_pending = false
 		elif not sel.is_empty():
 			set_selection([])
 		else:

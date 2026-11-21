@@ -51,9 +51,13 @@ func _draw() -> void:
 		draw_rect(Rect2(sp + Vector2(-w * 0.5, 3), Vector2(w * ch.xp_progress(), 3)), Color(0.75, 0.5, 1.0))
 		draw_string(font, sp + Vector2(-w * 0.5 - 30, 7), "Lv%d" % ch.level(), HORIZONTAL_ALIGNMENT_RIGHT, 28, 12, Color(1, 0.88, 0.45))
 	for b in game.buildings:
-		if b.alive and b.visible and (b.selected or b.hp < b.max_hp or not b.complete):
+		if b.alive and b.visible and (b.selected or b.hp < b.max_hp or not b.complete or b.garrison.size() > 0):
 			var top: Vector3 = b.position + Vector3.UP * (b.height * (b.model.scale.y) + 0.6)
 			_bar(c, top, 16.0 * b.size * zoom, b.hp / b.max_hp, _col(b.pid))
+			if b.garrison.size() > 0 and not c.is_position_behind(top):
+				var gp := c.unproject_position(top) + Vector2(8.0 * b.size * zoom + 6, 6)
+				draw_circle(gp, 9, Color(0.1, 0.08, 0.05, 0.85))
+				draw_string(font, gp + Vector2(-5, 5), str(b.garrison.size()), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1, 0.85, 0.45))
 			if not b.complete:
 				_bar(c, top + Vector3.UP * 0.01 - c.global_transform.basis.y * 0.35, 16.0 * b.size * zoom, b.progress, Color(0.35, 0.65, 1.0))
 	for s in game.shrines:

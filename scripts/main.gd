@@ -10,6 +10,8 @@ func _ready() -> void:
 	GameSettings.apply_device_settings(get_window())
 	if "--autotest" in OS.get_cmdline_user_args():
 		GameSettings.autotest = true
+		if "--featuretest" in OS.get_cmdline_user_args():
+			GameSettings.ui_test = true
 		if "--savetest" in OS.get_cmdline_user_args():
 			var st = load("res://scripts/save_test.gd").new()
 			st.main = self

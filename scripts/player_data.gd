@@ -31,6 +31,8 @@ var champ_ranks := [0, 0, 0, 0]
 var champ: Unit = null
 var champ_respawn := -1.0
 var passives: Array = []
+var unit_defs := {}
+var bell := false
 
 
 func passive_pending() -> int:

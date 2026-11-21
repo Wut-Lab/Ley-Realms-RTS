@@ -334,7 +334,8 @@ func _build_help() -> void:
 [b]Left click[/b] select  •  [b]drag[/b] box-select  •  [b]double-click[/b] select all of type  •  [b]Shift[/b] add to selection
 [b]Right click[/b] move / attack / gather / build / repair  (with a building selected: set rally point)
 [b]Command card hotkeys[/b] Q W E R T / A S D F G / Z X C V B
-[b]A[/b] attack-move (military)  •  [b]S[/b] stop  •  [b]D[/b] hold position
+[b]A[/b] attack-move (military)  •  [b]S[/b] stop  •  [b]D[/b] hold position  •  [b]F[/b] garrison (then click a Town Hall or tower)
+[b]Town Hall[/b]: C ungarrison, V Town Bell / All Clear  •  [b]Wall[/b]: Q Make Gate
 [b]Arrow keys / screen edge[/b] pan  •  [b]Mouse wheel[/b] zoom  •  [b]Middle drag / PgUp PgDn[/b] rotate  •  [b]Home[/b] reset view
 [b]Ctrl+0-9[/b] set control group  •  [b]0-9[/b] select group (double-tap to jump)
 [b]` or F2[/b] select champion (twice to jump)  •  champion abilities Q W E R, learn Z X C V
@@ -582,7 +583,7 @@ func _refresh_selection() -> void:
 		multi_kinds = order
 		for i in mini(order.size(), multi_buttons.size()):
 			multi_buttons[i].visible = true
-			multi_buttons[i].text = "%s x%d" % [Defs.UNITS[order[i]]["name"].replace(" (Hero)", ""), groups[order[i]]]
+			multi_buttons[i].text = "%s x%d" % [game.unit_def(game.human, order[i])["name"].replace(" (Hero)", ""), groups[order[i]]]
 		return
 	var e = sel[0]
 	info_name.text = e.display_name()
@@ -660,6 +661,8 @@ func _building_text(b: Building) -> String:
 		lines.append("Attack %d  •  Range %.0f" % [b.def["atk"], b.def["range"]])
 	if b.def.get("pop", 0) > 0:
 		lines.append("Provides %d population" % b.def["pop"])
+	if b.capacity() > 0:
+		lines.append("Garrisoned: %d / %d%s" % [b.garrison.size(), b.capacity(), ("  (+%d arrows)" % b.garrison.size()) if b.garrison.size() > 0 and b.def.get("atk", 0) > 0 else ""])
 	if b.kind == "farm" and b.complete:
 		lines.append("Farmer: " + ("working" if b.farmer and is_instance_valid(b.farmer) and b.farmer.node == b else "none - right-click with a peasant"))
 	if b.stalled:
@@ -699,8 +702,13 @@ func _refresh_commands() -> void:
 				"act": func(): _cancel_construction(b)}
 		else:
 			var i := 0
+			if b.kind == "wall":
+				var gd: Dictionary = Defs.BUILDINGS["gate"]
+				var gr := "" if p.can_afford(gd["cost"]) else p.missing_text(gd["cost"])
+				cmds[0] = {"label": "Make Gate", "title": "Convert to Gate", "desc": "Turn this wall section into a gate that opens for your units and blocks enemies.",
+					"cost": gd["cost"], "ok": gr == "", "reason": gr, "act": func(): _make_gate(b)}
 			for t in b.def.get("trains", []):
-				var d: Dictionary = Defs.UNITS[t]
+				var d: Dictionary = game.unit_def(game.human, t)
 				var reason := b.check(t)
 				cmds[i] = {"label": d["name"].replace(" (Hero)", ""), "title": "Train " + d["name"], "desc": d["desc"], "cost": d["cost"],
 					"extra": "Time %ds  •  HP %d  •  Pop %d" % [d["time"], d["hp"], d["pop"]], "ok": reason == "", "reason": reason,
@@ -712,11 +720,24 @@ func _refresh_commands() -> void:
 					continue
 				if td.has("max_age") and p.age > td["max_age"]:
 					continue
+				if td.has("requires") and not p.techs.has(td["requires"]):
+					continue
 				var reason := b.check(r)
 				cmds[i] = {"label": td["name"].replace("Advance: ", ""), "title": td["name"], "desc": td["desc"], "cost": td["cost"],
 					"extra": "Research time %ds" % td["time"], "ok": reason == "", "reason": reason, "tech": true,
 					"act": func(): _train(b, r)}
 				i += 1
+			if b.capacity() > 0:
+				var n := b.garrison.size()
+				cmds[12] = {"label": "Ungarrison", "title": "Ungarrison (%d/%d)" % [n, b.capacity()], "desc": "Send every unit sheltering inside back out.",
+					"ok": n > 0, "reason": "Nobody is inside", "act": func(): b.eject_all()}
+			if b.kind == "town_hall":
+				if p.bell:
+					cmds[13] = {"label": "All Clear", "title": "All Clear", "desc": "Peasants leave their shelters and return to work.", "ok": true,
+						"act": func(): game.all_clear(game.human)}
+				else:
+					cmds[13] = {"label": "Town Bell", "title": "Ring the Town Bell", "desc": "Every peasant runs to the nearest Town Hall or Watch Tower with room. Each one inside adds an arrow.",
+						"ok": true, "act": func(): game.town_bell(game.human)}
 			cmds[14] = {"label": "Demolish", "title": "Demolish", "desc": "Destroy this building.", "ok": true,
 				"act": func(): b.die(null)}
 	elif ctl.selected_champion() != null and ctl.own_workers().is_empty():
@@ -735,9 +756,11 @@ func _refresh_commands() -> void:
 				cmds[i] = {"label": d["name"].replace("Stone ", ""), "title": "Build " + d["name"], "desc": d["desc"], "cost": d["cost"],
 					"extra": "HP %d  •  Build time %ds" % [d["hp"], d["time"]], "ok": reason == "", "reason": reason,
 					"act": func(): ctl.begin_place(k)}
+			cmds[13] = _garrison_cmd()
 			cmds[14] = {"label": "Stop", "title": "Stop", "desc": "Halt current orders.", "ok": true,
 				"act": func(): _stop(false)}
 		else:
+			cmds[8] = _garrison_cmd()
 			cmds[5] = {"label": "Attack\nMove", "title": "Attack-move", "desc": "Move to a point, attacking any enemies on the way. Click the ground after pressing.", "ok": true,
 				"act": _begin_amove}
 			cmds[6] = {"label": "Stop", "title": "Stop", "desc": "Halt current orders.", "ok": true,
@@ -785,6 +808,32 @@ func _champion_commands(c: Champion) -> void:
 	cmds[5] = {"label": "Attack\nMove", "title": "Attack-move", "desc": "Move, attacking enemies on the way.", "ok": true, "act": _begin_amove}
 	cmds[6] = {"label": "Stop", "title": "Stop", "desc": "Halt current orders.", "ok": true, "act": func(): _stop(false)}
 	cmds[7] = {"label": "Hold", "title": "Hold position", "desc": "Stay put and only attack enemies in range.", "ok": true, "act": func(): _stop(true)}
+	cmds[8] = _garrison_cmd()
+
+
+## Test helper: build the command card as if this building were selected.
+func ctl_refresh_for_test(b: Building) -> void:
+	game.ctl.set_selection([b])
+	_refresh_commands()
+
+
+func _garrison_cmd() -> Dictionary:
+	return {"label": "Garrison", "title": "Garrison", "desc": "Shelter inside a Town Hall (12) or Watch Tower (5): units heal and each adds an arrow. Then %s the building." % ("tap" if GameSettings.touch_active else "click"),
+		"ok": true, "act": _begin_garrison}
+
+
+func _begin_garrison() -> void:
+	game.ctl.garrison_pending = true
+	message("Garrison: %s a Town Hall or Watch Tower." % ("tap" if GameSettings.touch_active else "click"), Color(0.9, 0.9, 0.6))
+
+
+func _make_gate(w: Building) -> void:
+	var g := game.convert_to_gate(w)
+	if g:
+		game.ctl.set_selection([g])
+		Sfx.play("complete", -6.0)
+	else:
+		Sfx.play("error", -6.0)
 
 
 func ctl_cast(i: int) -> void:
@@ -925,12 +974,13 @@ func _touch_cancel() -> void:
 	ctl.cancel_place()
 	ctl.cancel_cast()
 	ctl.amove_pending = false
+	ctl.garrison_pending = false
 
 
 func _update_touch(delta: float) -> void:
 	var ctl := game.ctl
 	var placing := ctl.placing != ""
-	var pending := ctl.cast_pending >= 0 or ctl.amove_pending
+	var pending := ctl.cast_pending >= 0 or ctl.amove_pending or ctl.garrison_pending
 	context_bar.visible = placing or pending
 	context_buttons["Place"].visible = placing
 	context_buttons["Rotate"].visible = placing and ctl.placing != "wall"
@@ -961,7 +1011,7 @@ func back_pressed() -> void:
 	var ctl := game.ctl
 	if save_panel.visible:
 		save_panel.close()
-	elif ctl.placing != "" or ctl.cast_pending >= 0 or ctl.amove_pending:
+	elif ctl.placing != "" or ctl.cast_pending >= 0 or ctl.amove_pending or ctl.garrison_pending:
 		_touch_cancel()
 	elif help_panel.visible:
 		help_panel.visible = false

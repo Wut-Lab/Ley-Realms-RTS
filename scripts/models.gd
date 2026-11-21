@@ -140,6 +140,8 @@ static func mesh(key: String, tc: Color = Color.WHITE, variant: int = 0) -> Mesh
 static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(key) + v * 7919
+	if v > 0 and (TIER_HEAD.has(key) or key == "dragon"):
+		_tier_extras(mb, key, tc, v)
 	match key:
 		# ---------------- units ----------------
 		"peasant":
@@ -485,6 +487,19 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.box(Vector3(0, 1.9, 0), Vector3(1.08, 0.14, 1.08), tc.darkened(0.2))
 			mb.box(Vector3(0.3, 2.25, 0.3), Vector3(0.32, 0.35, 0.32), STONE)
 			mb.box(Vector3(-0.3, 2.25, -0.3), Vector3(0.32, 0.35, 0.32), STONE)
+		"gate":
+			for sx in [-0.42, 0.42]:
+				mb.box(Vector3(sx, 0.55, 0), Vector3(0.24, 3.2, 1.04), STONE)
+				mb.box(Vector3(sx, 2.25, 0), Vector3(0.3, 0.3, 1.08), STONE)
+			mb.box(Vector3(0, 2.25, 0), Vector3(1.04, 0.5, 0.7), DSTONE)
+			mb.box(Vector3(0, 2.25, 0.36), Vector3(0.5, 0.3, 0.04), tc)
+			mb.box(Vector3(0, 2.25, -0.36), Vector3(0.5, 0.3, 0.04), tc)
+		"gate_door":
+			for i in 4:
+				mb.box(Vector3(-0.24 + i * 0.16, 0.95, 0), Vector3(0.05, 1.9, 0.06), Color(0.25, 0.24, 0.26))
+			for j in 3:
+				mb.box(Vector3(0, 0.35 + j * 0.6, 0), Vector3(0.62, 0.05, 0.06), Color(0.3, 0.29, 0.31))
+			mb.box(Vector3(0, 0.95, 0.04), Vector3(0.58, 1.8, 0.03), DWOOD)
 		"stable":
 			_plinth(mb, 4.2)
 			mb.box(Vector3(0, 0.9, -0.4), Vector3(3.8, 1.6, 2.4), WOOD)
@@ -651,6 +666,31 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.sphere(Vector3(0.4, 0.15, 0.2), 0.15, Color(0.9, 0.88, 0.8))
 		_:
 			mb.box(Vector3(0, 0.5, 0), Vector3(1, 1, 1), tc)
+
+
+const TIER_HEAD := {"swordsman": 1.28, "spearman": 1.38, "archer": 1.36, "knight": 2.0, "mage": 1.62, "cleric": 1.3}
+
+
+## Visual upgrades for unit upgrade tiers: plumes and gold pauldrons (tier 1), capes and glowing gems (tier 2).
+static func _tier_extras(mb: ModelBuilder, key: String, tc: Color, tier: int) -> void:
+	if key == "dragon":
+		mb.cone(Vector3(0.18, 1.25, 1.65), 0.09, 0.65, GOLD, 5, Vector3(-0.9, 0, 0.2))
+		mb.cone(Vector3(-0.18, 1.25, 1.65), 0.09, 0.65, GOLD, 5, Vector3(-0.9, 0, -0.2))
+		for i in 5:
+			mb.cone(Vector3(0, 0.62, 0.8 - i * 0.45), 0.12, 0.45, Color(1.0, 0.5, 0.15, 0.25), 4)
+		return
+	if not TIER_HEAD.has(key):
+		return
+	var h: float = TIER_HEAD[key]
+	var sh := h - 0.42
+	var dz := -0.05 if key == "knight" else 0.0
+	mb.box(Vector3(0, h + 0.2, dz - 0.03), Vector3(0.05, 0.22, 0.28), tc.lightened(0.2), Vector3(0.3, 0, 0))
+	mb.sphere(Vector3(0.24, sh, dz), 0.1, GOLD, Vector3(1.2, 0.7, 1.1))
+	mb.sphere(Vector3(-0.24, sh, dz), 0.1, GOLD, Vector3(1.2, 0.7, 1.1))
+	if tier >= 2:
+		mb.box(Vector3(0, sh - 0.25, dz - 0.18), Vector3(0.44, 0.75, 0.04), tc.darkened(0.35), Vector3(0.12, 0, 0))
+		mb.sphere(Vector3(0, sh - 0.05, dz + 0.16), 0.055, Color(0.5, 0.9, 1.0, 0.1))
+		mb.box(Vector3(0, h + 0.05, dz), Vector3(0.36, 0.05, 0.36), GOLD)
 
 
 static func _plinth(mb: ModelBuilder, s: float) -> void:

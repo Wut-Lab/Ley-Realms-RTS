@@ -12,7 +12,7 @@ const SETTINGS_KEYS := ["map_size", "biome", "map_seed", "num_ai", "difficulty",
 	"player_color", "speed", "champions", "champion_class"]
 const PLAYER_KEYS := ["name", "team", "human", "ai_hard", "res", "age", "techs", "researching", "max_pop", "defeated",
 	"gather_mult", "mods", "stats", "champ_class", "champ_level", "champ_xp", "champ_points", "champ_ranks",
-	"champ_respawn", "passives"]
+	"champ_respawn", "passives", "bell"]
 
 
 static func _path(slot: String) -> String:
@@ -68,7 +68,10 @@ static func serialize(game: Game) -> Dictionary:
 		blds.append({"k": b.kind, "pid": b.pid, "p": _v2(b.pos2()), "rot": b.rotation.y, "done": b.complete,
 			"prog": b.progress, "hp": b.hp, "queue": b.queue, "rally": _v2(b.rally) if b.rally != Vector2.INF else null})
 	var units: Array = []
-	for u in game.units:
+	var all_units: Array = game.units.duplicate()
+	for b in game.buildings:
+		all_units.append_array(b.garrison)
+	for u in all_units:
 		if not u.alive:
 			continue
 		var d := {"k": u.kind, "pid": u.pid, "p": _v2(u.pos2()), "rot": u.rotation.y, "hp": u.hp,
@@ -83,6 +86,11 @@ static func serialize(game: Game) -> Dictionary:
 			d["amove"] = u.state != Unit.MOVE
 		if u is Champion:
 			d["cds"] = u.cds
+		if u.garrison_in != null:
+			d["gin"] = _v2(u.garrison_in.pos2())
+			if u.pre_node != null and is_instance_valid(u.pre_node):
+				d["pre"] = _v2(u.pre_node.pos2())
+				d["pre_farm"] = u.pre_node is Building
 		units.append(d)
 	var shrines: Array = []
 	for s in game.shrines:
@@ -189,6 +197,12 @@ static func restore(game: Game, data: Dictionary) -> void:
 					v = v.map(func(x): return int(x))
 				p.set(k, v)
 		p.color = Color.html(d["color"])
+	# rebuild upgraded unit stats from researched upgrade lines (lower tiers first)
+	for i in range(game.players.size()):
+		var ups: Array = game.players[i].techs.keys().filter(func(t): return Defs.TECHS.has(t) and Defs.TECHS[t].has("line"))
+		ups.sort_custom(func(a, b): return Defs.TECHS[a]["tier"] < Defs.TECHS[b]["tier"])
+		for t in ups:
+			game.apply_upgrade(i, t, false)
 	# resources (depleted ones are removed, others keep what's left)
 	var left: Array = data["resources"]
 	for n in game.resources.duplicate():
@@ -242,6 +256,23 @@ static func restore(game: Game, data: Dictionary) -> void:
 	for pair in restored:
 		var u: Unit = pair[0]
 		var d: Dictionary = pair[1]
+		if d.has("gin"):
+			u.gtype = d["gt"]
+			if d.has("pre"):
+				var pp := _to_v2(d["pre"])
+				if d.get("pre_farm", false):
+					for b in game.buildings:
+						if b.kind == "farm" and b.pid == u.pid and b.pos2().distance_to(pp) < 0.6:
+							u.pre_node = b
+				else:
+					u.pre_node = game.find_resource(pp, u.gtype, 1.0)
+			var gp := _to_v2(d["gin"])
+			for b in game.buildings:
+				if b.pid == u.pid and b.capacity() > 0 and b.pos2().distance_to(gp) < 0.6:
+					game.enter_garrison(u, b)
+					break
+			if u.garrison_in != null:
+				continue
 		var st := int(d["st"])
 		u.gtype = d["gt"]
 		if d.has("np"):

@@ -49,6 +49,7 @@ var fog_t := 0.0
 var stamp_cache := {}
 var check_t := 0.0
 var alert_t := {}
+var gate_cells := {}
 var load_data: Dictionary = {}
 var save_slot := ""
 var autosave_t := 180.0
@@ -104,7 +105,7 @@ func _ready() -> void:
 			ai.setup(self, p.id, p.ai_hard)
 			ais.append(ai)
 			add_child(ai)
-	if gs.autotest and not "--uitest" in OS.get_cmdline_user_args() and not "--touchtest" in OS.get_cmdline_user_args():
+	if gs.autotest and not "--uitest" in OS.get_cmdline_user_args() and not "--touchtest" in OS.get_cmdline_user_args() and not "--featuretest" in OS.get_cmdline_user_args() and not "--showcase" in OS.get_cmdline_user_args():
 		var ai := AIController.new()
 		ai.setup(self, human, true)
 		ais.append(ai)
@@ -113,6 +114,16 @@ func _ready() -> void:
 		var tt = load("res://scripts/touch_test.gd").new()
 		tt.game = self
 		add_child(tt)
+	if "--showcase" in OS.get_cmdline_user_args():
+		var sc = load("res://scripts/showcase.gd").new()
+		sc.game = self
+		add_child(sc)
+	if "--featuretest" in OS.get_cmdline_user_args() and not GameSettings.get_meta("ft_started", false):
+		GameSettings.set_meta("ft_started", true)
+		var ft = load("res://scripts/feature_test.gd").new()
+		ft.game = self
+		ft.main = main
+		main.add_child(ft)
 	if "--uitest" in OS.get_cmdline_user_args():
 		var t = load("res://scripts/ui_test.gd").new()
 		t.game = self
@@ -600,6 +611,7 @@ func _autotest_report() -> void:
 		line += "\n    P%d workers %s\n   " % [i, str(st)]
 		if p.champ_class != "":
 			line += " [%s Lv%d xp%d pts%d ranks%s casts%d %s doctrines%s]" % [p.champ_class, p.champ_level, p.champ_xp, p.champ_points, str(p.champ_ranks), p.stats.get("casts", 0), "alive" if p.champ != null else "dead", str(p.passives)]
+		line += " [garrisoned %d bell %s lost %d ups %s] " % [garrisoned_of(i).size(), p.bell, p.stats["lost"], str(p.techs.keys().filter(func(t): return t.begins_with("up_")))]
 		line += " P%d age%d pop%d/%d u%d b%d f%d w%d g%d m%d k%d%s" % [i, p.age, p.pop, p.pop_cap, nu, nb, p.res["food"], p.res["wood"], p.res["gold"], p.res["mana"], p.stats["killed"], " DEAD" if p.defeated else ""]
 	print(line)
 	print("   PROF ms: ", prof.keys().map(func(k): return "%s=%d" % [k, prof[k] / 1000]))
@@ -1014,7 +1026,10 @@ func spawn_building(k: String, owner_id: int, p: Vector2, done: bool, rot: float
 		if not bbuckets.has(bk):
 			bbuckets[bk] = []
 		bbuckets[bk].append(b)
-	_mark_cells(b.cells, 1, not d.get("walkable", false))
+	var blocks: bool = not d.get("walkable", false) and not d.get("gate", false)
+	_mark_cells(b.cells, 1, blocks)
+	if d.get("gate", false):
+		_register_gate(b, true)
 	if not d.get("walkable", false):
 		_push_units_out(b.cells)
 	if done:
@@ -1198,6 +1213,199 @@ func spawn_area(k: String, p: Vector3, owner_id: int, r: float, d: float, v: flo
 	areas.append(a)
 
 
+# ======================================================================= upgrade lines
+## The unit definition this player currently trains for a kind (base stats merged with upgrades).
+func unit_def(owner_id: int, k: String) -> Dictionary:
+	if owner_id >= 0 and owner_id < players.size():
+		var ud: Dictionary = players[owner_id].unit_defs
+		if ud.has(k):
+			return ud[k]
+	return Defs.UNITS[k]
+
+
+func apply_upgrade(owner_id: int, tech_id: String, update_units: bool) -> void:
+	var t: Dictionary = Defs.TECHS[tech_id]
+	var line: String = t["line"]
+	var nd: Dictionary = unit_def(owner_id, line).duplicate(true)
+	for k in t["stats"]:
+		nd[k] = t["stats"][k]
+	nd["tier"] = int(t["tier"])
+	nd["desc"] = Defs.UNITS[line]["desc"]
+	players[owner_id].unit_defs[line] = nd
+	if not update_units:
+		return
+	var all: Array = units.duplicate()
+	for b in buildings:
+		all.append_array(b.garrison)
+	for u in all:
+		if u.pid == owner_id and u.kind == line and u.alive:
+			u.set_def(nd)
+			if u.visible:
+				spawn_fx("levelup", u.position, 0.6, Color.WHITE)
+
+
+# ======================================================================= gates
+func _register_gate(b: Building, on: bool) -> void:
+	for z in range(b.cells.position.y, b.cells.end.y):
+		for x in range(b.cells.position.x, b.cells.end.x):
+			var c := Vector2i(x, z)
+			if on:
+				gate_cells[c] = b
+				# paths may cross gates, but prefer going around so enemies don't all queue at one
+				if astar.is_in_boundsv(c):
+					astar.set_point_weight_scale(c, 6.0)
+			elif gate_cells.get(c) == b:
+				gate_cells.erase(c)
+				if astar.is_in_boundsv(c):
+					astar.set_point_weight_scale(c, 1.0)
+
+
+## The enemy gate standing at p that stops a unit of this owner, or null.
+func gate_blocks(p: Vector2, owner_id: int) -> Building:
+	if gate_cells.is_empty():
+		return null
+	var c := Vector2i(int(floor(p.x)), int(floor(p.y)))
+	var b = gate_cells.get(c)
+	if b != null and is_instance_valid(b) and b.alive and is_enemy(owner_id, b.pid):
+		return b
+	return null
+
+
+func convert_to_gate(wall: Building) -> Building:
+	var p: PlayerData = players[wall.pid]
+	var d: Dictionary = Defs.BUILDINGS["gate"]
+	if not wall.alive or wall.kind != "wall" or not wall.complete or not p.pay(d["cost"]):
+		return null
+	var frac: float = wall.hp / wall.max_hp
+	var pos := wall.pos2()
+	var owner_id := wall.pid
+	# remove the wall without destruction effects
+	wall.alive = false
+	buildings.erase(wall)
+	for k in _bkeys(wall):
+		if bbuckets.has(k):
+			bbuckets[k].erase(wall)
+	_mark_cells(wall.cells, -1, true)
+	if ctl:
+		ctl.on_entity_removed(wall)
+	wall.queue_free()
+	var g := spawn_building("gate", owner_id, pos, true, wall.rotation.y)
+	g.hp = g.max_hp * frac
+	return g
+
+
+# ======================================================================= garrisons
+func enter_garrison(u: Unit, b: Building) -> bool:
+	if not b.alive or not b.complete or b.garrison.size() >= b.capacity() or not u.alive:
+		return false
+	units.erase(u)
+	u.garrison_in = b
+	u.visible = false
+	u.path = PackedVector2Array()
+	u.state = Unit.IDLE
+	b.garrison.append(u)
+	if ctl:
+		ctl.on_entity_removed(u)
+	return true
+
+
+func exit_garrison(u: Unit, b: Building) -> void:
+	b.garrison.erase(u)
+	u.garrison_in = null
+	var toward: Vector2 = b.rally if b.rally != Vector2.INF else Vector2(size, size) * 0.5
+	var dir := (toward - b.pos2()).normalized()
+	if dir == Vector2.ZERO:
+		dir = Vector2(0, 1)
+	dir = dir.rotated(randf_range(-0.9, 0.9))
+	var sp := b.pos2() + dir * (b.size * 0.5 + 1.0)
+	var c := nearest_walkable(Vector2i(int(sp.x), int(sp.y)), 8, Vector2i(int(sp.x), int(sp.y)))
+	if c.x >= 0:
+		sp = Vector2(c.x + 0.5, c.y + 0.5)
+	u.position = Vector3(sp.x, height_at(sp.x, sp.y) + u.fly_h, sp.y)
+	u.visible = true
+	units.append(u)
+	u.state = Unit.IDLE
+	if u.cls == "worker" and u.pre_node != null and is_instance_valid(u.pre_node) and not (u.pre_node is ResourceNode and u.pre_node.depleted):
+		u.order_gather(u.pre_node)
+	elif u.cls == "worker" and u.gtype != "":
+		var nn = free_farm_near(u.pos2(), u.pid, 20.0) if u.gtype == "food" else null
+		if nn == null:
+			nn = find_resource(u.pos2(), u.gtype, 25.0)
+		if nn != null:
+			u.order_gather(nn)
+	elif u.cls != "worker" and b.rally != Vector2.INF:
+		u.order_move(b.rally + Vector2(randf() - 0.5, randf() - 0.5) * 2.0)
+
+
+func garrison_space(b: Building, reserved: Dictionary) -> int:
+	return b.capacity() - b.garrison.size() - reserved.get(b, 0)
+
+
+## Order units into the nearest garrisonable buildings with room (Town Bell, or a group order).
+func send_to_shelter(us: Array, owner_id: int, only: Building = null) -> int:
+	var shelters: Array = []
+	for b in buildings:
+		if b.pid == owner_id and b.alive and b.complete and b.capacity() > 0 and (only == null or b == only):
+			shelters.append(b)
+	var reserved := {}
+	for u in units:
+		if u.state == Unit.GARRISON and u.gtarget != null and is_instance_valid(u.gtarget):
+			reserved[u.gtarget] = reserved.get(u.gtarget, 0) + 1
+	var sent := 0
+	for u in us:
+		if not u.alive or u.garrison_in != null:
+			continue
+		var best: Building = null
+		var bd := 1e9
+		for b in shelters:
+			if garrison_space(b, reserved) <= 0:
+				continue
+			var d: float = b.pos2().distance_to(u.pos2())
+			if d < bd:
+				bd = d
+				best = b
+		if best == null:
+			break
+		reserved[best] = reserved.get(best, 0) + 1
+		u.order_garrison(best)
+		sent += 1
+	return sent
+
+
+func town_bell(owner_id: int) -> void:
+	var p: PlayerData = players[owner_id]
+	p.bell = true
+	var workers: Array = units.filter(func(u): return u.pid == owner_id and u.alive and u.cls == "worker")
+	var n := send_to_shelter(workers, owner_id)
+	if owner_id == human and hud:
+		Sfx.play("alert", -2.0)
+		hud.message("Town Bell! %d peasants take shelter%s." % [n, "" if n >= workers.size() else " (no room for the rest)"], Color(1, 0.8, 0.4))
+
+
+func all_clear(owner_id: int) -> void:
+	players[owner_id].bell = false
+	for b in buildings:
+		if b.pid == owner_id and b.alive:
+			for u in b.garrison.duplicate():
+				if u.cls == "worker":
+					exit_garrison(u, b)
+	for u in units:
+		if u.pid == owner_id and u.cls == "worker" and u.state == Unit.GARRISON:
+			u.order_stop()
+			if u.pre_node != null and is_instance_valid(u.pre_node):
+				u.order_gather(u.pre_node)
+	if owner_id == human and hud:
+		hud.message("All clear - peasants return to work.", Color(0.7, 1, 0.7))
+
+
+func garrisoned_of(owner_id: int) -> Array:
+	var out: Array = []
+	for b in buildings:
+		if b.pid == owner_id:
+			out.append_array(b.garrison)
+	return out
+
+
 func recalc_pop(owner_id: int) -> void:
 	var p: PlayerData = players[owner_id]
 	var cap := 0
@@ -1237,6 +1445,8 @@ func damage_vs(target: Entity, info: Dictionary) -> float:
 
 func apply_damage(target: Entity, info: Dictionary) -> void:
 	if target == null or not is_instance_valid(target) or not target.alive:
+		return
+	if target is Unit and target.garrison_in != null:
 		return
 	var src = info.get("src")
 	if not is_instance_valid(src):
@@ -1314,7 +1524,9 @@ func on_building_died(b: Building, killer: Entity) -> void:
 	for k in _bkeys(b):
 		if bbuckets.has(k):
 			bbuckets[k].erase(b)
-	_mark_cells(b.cells, -1, not b.def.get("walkable", false))
+	_mark_cells(b.cells, -1, not b.def.get("walkable", false) and not b.def.get("gate", false))
+	if b.def.get("gate", false):
+		_register_gate(b, false)
 	recalc_pop(b.pid)
 	if killer != null and is_instance_valid(killer) and killer.pid > 0:
 		players[killer.pid].stats["razed"] += 1
@@ -1329,6 +1541,8 @@ func finish_tech(owner_id: int, id: String) -> void:
 	p.researching.erase(id)
 	p.techs[id] = true
 	var m: Dictionary = p.mods
+	if Defs.TECHS[id].has("line"):
+		apply_upgrade(owner_id, id, true)
 	match id:
 		"age2": p.age = 2
 		"age3": p.age = 3
@@ -1521,6 +1735,9 @@ func cmd_smart(sel: Array, p: Vector2, target) -> void:
 						rest.append(u)
 				else:
 					rest.append(u)
+			if not rest.is_empty() and b.complete and b.capacity() > 0:
+				send_to_shelter(rest, owner_id, b)
+				rest = rest.filter(func(u): return u.state != Unit.GARRISON)
 			if not rest.is_empty():
 				cmd_move(rest, b.pos2() + (rest[0].pos2() - b.pos2()).normalized() * (b.size * 0.5 + 2.0))
 			return

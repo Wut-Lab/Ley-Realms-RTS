@@ -2,7 +2,7 @@ class_name Unit
 extends Entity
 ## Mobile unit: movement, combat, gathering, construction.
 
-enum { IDLE, MOVE, ATTACK, GATHER, RETURN, BUILD, AMOVE }
+enum { IDLE, MOVE, ATTACK, GATHER, RETURN, BUILD, AMOVE, GARRISON }
 
 var state := IDLE
 var path := PackedVector2Array()
@@ -37,6 +37,10 @@ var stuck_t := 0.0
 var last_p := Vector2.ZERO
 var idle_time := 0.0
 var sep_phase := randi() % 2
+var garrison_in: Building = null
+var gtarget: Building = null
+var pre_node = null
+var gate_t := 0.0
 # status effects (champion abilities)
 var stun_t := 0.0
 var slow_t := 0.0
@@ -62,7 +66,7 @@ func setup(g: Game, k: String, owner_id: int) -> void:
 	game = g
 	kind = k
 	pid = owner_id
-	def = Defs.UNITS[k]
+	def = g.unit_def(owner_id, k)
 	cls = def["cls"]
 	radius = def["radius"]
 	height = def["height"] * def.get("scale", 1.3)
@@ -78,7 +82,7 @@ func setup(g: Game, k: String, owner_id: int) -> void:
 	body.scale = Vector3.ONE * def.get("scale", 1.3)
 	add_child(body)
 	mesh_i = MeshInstance3D.new()
-	mesh_i.mesh = Models.mesh(def["model"], player().color)
+	mesh_i.mesh = Models.mesh(def["model"], player().color, int(def.get("tier", 0)))
 	body.add_child(mesh_i)
 	if cls == "worker":
 		carry_i = MeshInstance3D.new()
@@ -275,6 +279,41 @@ func order_stop() -> void:
 	state = IDLE
 
 
+func order_garrison(b: Building) -> void:
+	if node != null and is_instance_valid(node):
+		pre_node = node
+	_clear()
+	gtarget = b
+	state = GARRISON
+
+
+func _garrison_tick(delta: float) -> void:
+	if gtarget == null or not is_instance_valid(gtarget) or not gtarget.alive or gtarget.garrison.size() >= gtarget.capacity():
+		gtarget = null
+		state = IDLE
+		return
+	if gtarget.edge_dist(pos2()) <= 1.0 + radius:
+		var b := gtarget
+		gtarget = null
+		if not game.enter_garrison(self, b):
+			state = IDLE
+	else:
+		_chase(gtarget.pos2(), delta)
+
+
+## Swap in an upgraded definition (unit upgrade lines), keeping the same share of health.
+func set_def(nd: Dictionary) -> void:
+	var frac := hp / max_hp if max_hp > 0.0 else 1.0
+	def = nd
+	max_hp = def["hp"]
+	if kind == "knight":
+		max_hp += player().mods["knight_hp"]
+	max_hp *= player().mods["hp_mult"]
+	hp = max_hp * frac
+	speed = def["speed"]
+	mesh_i.mesh = Models.mesh(def["model"], player().color, int(def.get("tier", 0)))
+
+
 func order_hold() -> void:
 	_clear()
 	state = IDLE
@@ -315,6 +354,7 @@ func tick(delta: float) -> void:
 		GATHER: _gather(delta)
 		RETURN: _return(delta)
 		BUILD: _build(delta)
+		GARRISON: _garrison_tick(delta)
 	if not flying and (Engine.get_process_frames() + sep_phase) % 2 == 0:
 		_separate(delta * 2.0)
 	_animate(delta)
@@ -377,7 +417,7 @@ func _end_attack() -> void:
 
 func _attack(delta: float) -> void:
 	var heal := def.has("heal")
-	if target == null or not is_instance_valid(target) or not target.alive:
+	if target == null or not is_instance_valid(target) or not target.alive or (target is Unit and target.garrison_in != null):
 		_end_attack()
 		return
 	if heal:
@@ -659,8 +699,28 @@ func _move_dir(dir: Vector2, delta: float) -> void:
 func _set_pos(p: Vector2) -> void:
 	p.x = clampf(p.x, 0.5, game.size - 0.5)
 	p.y = clampf(p.y, 0.5, game.size - 0.5)
+	if not flying and not game.gate_cells.is_empty():
+		var g := game.gate_blocks(p, pid)
+		if g != null:
+			_blocked_by_gate(g)
+			return
 	position.x = p.x
 	position.z = p.y
+
+
+## An enemy gate is in the way: soldiers and beasts break it down, others stop.
+func _blocked_by_gate(g: Building) -> void:
+	if state == ATTACK and target == g:
+		return
+	if def["atk"] > 0 and cls != "worker" and can_hit(g):
+		var was_amove := state == AMOVE or (state == ATTACK and resume_amove)
+		var keep_goal := goal
+		_auto_attack(g, was_amove or state == MOVE)
+		goal = keep_goal
+		chase_origin = pos2()
+	else:
+		path = PackedVector2Array()
+		state = IDLE
 
 
 func _face(dir: Vector2) -> void:

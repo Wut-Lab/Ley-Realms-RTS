@@ -18,6 +18,11 @@ var cells := Rect2i()
 var size := 1.0
 var stalled := false
 var flicker := 0.0
+var garrison: Array = []
+var door: MeshInstance3D
+var door_open := 0.0
+var door_t := 0.0
+var heal_t := 0.0
 
 
 func setup(g: Game, k: String, owner_id: int, done: bool) -> void:
@@ -34,6 +39,10 @@ func setup(g: Game, k: String, owner_id: int, done: bool) -> void:
 	model = MeshInstance3D.new()
 	model.mesh = Models.mesh(k, player().color)
 	add_child(model)
+	if def.get("gate", false):
+		door = MeshInstance3D.new()
+		door.mesh = Models.mesh("gate_door", player().color)
+		model.add_child(door)
 	if done:
 		complete = true
 		progress = 1.0
@@ -41,6 +50,10 @@ func setup(g: Game, k: String, owner_id: int, done: bool) -> void:
 	else:
 		hp = maxf(1.0, max_hp * 0.05)
 	_update_visual()
+
+
+func capacity() -> int:
+	return int(def.get("garrison", 0))
 
 
 func display_name() -> String:
@@ -129,6 +142,8 @@ func check(id: String) -> String:
 			return "Already reached"
 		if (id == "age3") and p.researching.has("age2"):
 			return "Requires Age of Steel"
+		if t.has("requires") and not p.techs.has(t["requires"]):
+			return "Requires " + Defs.TECHS[t["requires"]]["name"]
 		cost = t["cost"]
 	if not p.can_afford(cost):
 		return p.missing_text(cost)
@@ -173,8 +188,16 @@ func queued_count(id: String) -> int:
 
 
 func tick(delta: float) -> void:
+	if door:
+		_tick_door(delta)
 	if not complete:
 		return
+	if not garrison.is_empty():
+		heal_t -= delta
+		if heal_t <= 0.0:
+			heal_t = 0.5
+			for u in garrison:
+				u.hp = minf(u.max_hp, u.hp + 1.5)
 	# burning when badly damaged
 	if hp < max_hp * 0.5 and kind != "wall" and kind != "farm":
 		if fire == null:
@@ -236,6 +259,27 @@ func _spawn(id: String) -> void:
 		u.order_move(rally + Vector2(randf() - 0.5, randf() - 0.5) * 1.5)
 
 
+func _tick_door(delta: float) -> void:
+	door_t -= delta
+	if door_t <= 0.0:
+		door_t = 0.2
+		var want := 0.0
+		for u in game.units_near(pos2(), 2.6):
+			if u.alive and u.pid > 0 and not game.is_enemy(pid, u.pid) and u.pos2().distance_to(pos2()) < 2.4:
+				want = 1.0
+				break
+		door.set_meta("want", want)
+	var target_open: float = door.get_meta("want", 0.0)
+	door_open = move_toward(door_open, target_open, delta * 3.0)
+	door.position.y = door_open * 1.7
+
+
+func eject_all(workers_only: bool = false) -> void:
+	for u in garrison.duplicate():
+		if not workers_only or u.cls == "worker":
+			game.exit_garrison(u, self)
+
+
 func _defend(delta: float) -> void:
 	cd -= delta
 	scan_t -= delta
@@ -251,6 +295,13 @@ func _defend(delta: float) -> void:
 			"splash": 0.0, "owner": pid, "src": self}
 		game.spawn_projectile("arrow", position + Vector3.UP * height * 0.85, target, info)
 		Sfx.play_at("bow", position, -8.0)
+		# every garrisoned unit adds an arrow, spread over nearby enemies
+		if not garrison.is_empty():
+			var foes := game.area_targets(pos2(), rng, pid).filter(func(e): return e is Unit)
+			for i in garrison.size():
+				var t2: Entity = foes[i % foes.size()] if not foes.is_empty() else target
+				var off := Vector3(randf_range(-0.6, 0.6), randf_range(-0.3, 0.3), randf_range(-0.6, 0.6))
+				game.spawn_projectile("arrow", position + Vector3.UP * height * 0.85 + off, t2, info)
 
 
 func take_damage(amount: float, attacker: Entity) -> void:
@@ -265,6 +316,9 @@ func take_damage(amount: float, attacker: Entity) -> void:
 func die(killer: Entity) -> void:
 	if not alive:
 		return
+	if not garrison.is_empty():
+		alive = true
+		eject_all()
 	alive = false
 	for i in range(queue.size() - 1, -1, -1):
 		if queue[i]["tech"]:
