@@ -633,8 +633,8 @@ func _shot(tt: float) -> void:
 			focus = best_c.pos2()
 			ctl.set_selection([best_c])
 	cam.center_on(focus)
-	cam.dist = 30.0
-	cam.target_dist = 30.0
+	cam.dist = 30.0 if not "--close" in OS.get_cmdline_user_args() else 15.0
+	cam.target_dist = cam.dist
 	await get_tree().process_frame
 	await get_tree().process_frame
 	await RenderingServer.frame_post_draw

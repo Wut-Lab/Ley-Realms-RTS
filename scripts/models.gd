@@ -18,12 +18,58 @@ shader_type spatial;
 uniform sampler2D fog_tex : filter_linear, repeat_disable;
 uniform float map_size = 128.0;
 uniform float fog_on = 0.0;
+varying vec3 lpos;
+varying vec3 lnorm;
+varying float mid;
+%NOISE%
+void vertex() {
+	lpos = VERTEX;
+	lnorm = NORMAL;
+	mid = UV.x;
+}
+vec2 face_plane(vec3 p, vec3 n) {
+	vec3 a = abs(n);
+	if (a.y > a.x && a.y > a.z) { return p.xz; }
+	if (a.x > a.z) { return p.zy; }
+	return p.xy;
+}
+float surface(float m, vec3 p, vec3 n) {
+	vec2 q = face_plane(p, n);
+	if (m < 0.5) { return 1.0; }
+	if (m < 1.5) {
+		// stone bricks with mortar lines
+		vec2 b = q * vec2(2.2, 4.4);
+		b.x += floor(b.y) * 0.5;
+		vec2 fb = fract(b);
+		float mortar = smoothstep(0.0, 0.07, fb.x) * smoothstep(1.0, 0.93, fb.x) * smoothstep(0.0, 0.1, fb.y) * smoothstep(1.0, 0.9, fb.y);
+		return mix(0.6, 0.86 + 0.24 * hash(floor(b)) + 0.06 * vnoise(q * 9.0), mortar);
+	}
+	if (m < 2.5) {
+		// wooden planks with grain
+		float w = q.x * 6.0 + q.y * 0.02;
+		float cell = floor(w);
+		float edge = smoothstep(0.0, 0.08, fract(w)) * smoothstep(1.0, 0.92, fract(w));
+		float grain = 0.9 + 0.1 * sin(q.y * 28.0 + hash(vec2(cell, 1.0)) * 6.0 + sin(q.y * 6.0 + cell) * 2.0);
+		return mix(0.66, (0.84 + 0.24 * hash(vec2(cell, 3.0))) * grain, edge);
+	}
+	if (m < 3.5) {
+		// rough plaster
+		return 0.9 + 0.1 * vnoise(q * 3.0) + 0.05 * vnoise(q * 14.0);
+	}
+	// overlapping roof shingles
+	vec2 s = q * vec2(5.0, 7.0);
+	s.x += floor(s.y) * 0.5;
+	vec2 fs = fract(s);
+	float rim = smoothstep(0.0, 0.18, fs.y) * smoothstep(0.0, 0.05, fs.x) * smoothstep(1.0, 0.95, fs.x);
+	return mix(0.62, 0.86 + 0.2 * hash(floor(s)) - fs.y * 0.12, rim);
+}
 void fragment() {
 	vec3 w = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	float f = 1.0;
 	if (fog_on > 0.5) { f = texture(fog_tex, w.xz / map_size).r; }
 	vec3 c = pow(COLOR.rgb, vec3(2.2));
 	float glow = 1.0 - COLOR.a;
+	c *= surface(mid, lpos, lnorm);
 	ALBEDO = c * f * f;
 	EMISSION = c * glow * 3.0 * f;
 	ROUGHNESS = 0.82;
@@ -160,7 +206,7 @@ static var ghost_bad: StandardMaterial3D
 static func setup(fog_tex: Texture2D, map_size: float, fog_on: bool) -> void:
 	if entity_mat == null:
 		var sh := Shader.new()
-		sh.code = ENTITY_SHADER
+		sh.code = shader_code(ENTITY_SHADER)
 		entity_mat = ShaderMaterial.new()
 		entity_mat.shader = sh
 	entity_mat.set_shader_parameter("fog_tex", fog_tex)
@@ -205,6 +251,7 @@ static func mesh(key: String, tc: Color = Color.WHITE, variant: int = 0) -> Mesh
 	if cache.has(ck):
 		return cache[ck]
 	var mb := ModelBuilder.new()
+	mb.textured = Defs.BUILDINGS.has(key) or key in ["gate_door", "merc_camp", "shrine"]
 	_build(mb, key, tc, variant)
 	var m := mb.commit(entity_mat)
 	cache[ck] = m

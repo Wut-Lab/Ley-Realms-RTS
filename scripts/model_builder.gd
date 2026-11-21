@@ -7,6 +7,24 @@ var verts := PackedVector3Array()
 var norms := PackedVector3Array()
 var cols := PackedColorArray()
 var idx := PackedInt32Array()
+var uvs := PackedVector2Array()
+var textured := false  # buildings: tag each part with a surface material for the shader
+
+
+## 0 plain, 1 stone bricks, 2 wood planks, 3 plaster, 4 roof shingles
+func _mat_id(prim: PrimitiveMesh, col: Color) -> float:
+	if not textured or col.a < 0.99:
+		return 0.0
+	var roofish: bool = prim is PrismMesh or (prim is CylinderMesh and prim.top_radius == 0.0)
+	if roofish and col.s > 0.25:
+		return 4.0
+	if col.s < 0.16 and col.v > 0.25 and col.v < 0.82:
+		return 1.0
+	if col.h > 0.03 and col.h < 0.13 and col.s > 0.3 and col.v < 0.62:
+		return 2.0
+	if col.v > 0.75 and col.s < 0.32:
+		return 3.0
+	return 0.0
 
 
 func add(prim: PrimitiveMesh, xf: Transform3D, col: Color) -> void:
@@ -16,10 +34,12 @@ func add(prim: PrimitiveMesh, xf: Transform3D, col: Color) -> void:
 	var ii: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
 	var base := verts.size()
 	var nb := xf.basis.inverse().transposed()
+	var mid := Vector2(_mat_id(prim, col), 0.0)
 	for i in v.size():
 		verts.append(xf * v[i])
 		norms.append((nb * n[i]).normalized())
 		cols.append(col)
+		uvs.append(mid)
 	for i in ii.size():
 		idx.append(base + ii[i])
 
@@ -78,6 +98,7 @@ func commit(mat: Material) -> ArrayMesh:
 	arr[Mesh.ARRAY_VERTEX] = verts
 	arr[Mesh.ARRAY_NORMAL] = norms
 	arr[Mesh.ARRAY_COLOR] = cols
+	arr[Mesh.ARRAY_TEX_UV] = uvs
 	arr[Mesh.ARRAY_INDEX] = idx
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
