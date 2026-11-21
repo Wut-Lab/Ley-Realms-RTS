@@ -9,7 +9,7 @@ const SLOTS := ["quick", "slot1", "slot2", "slot3", "autosave"]
 const SLOT_NAMES := {"quick": "Quick Save", "slot1": "Slot 1", "slot2": "Slot 2", "slot3": "Slot 3", "autosave": "Autosave"}
 const SETTINGS_KEYS := ["map_size", "biome", "map_seed", "num_ai", "difficulty", "abundance", "start_res", "forests",
 	"water", "relief", "fog", "reveal", "monsters", "shrines", "start_age", "peace", "victory", "pop_cap", "teams",
-	"player_color", "speed", "champions", "champion_class"]
+	"player_color", "speed", "champions", "champion_class", "mercs"]
 const PLAYER_KEYS := ["name", "team", "human", "ai_hard", "res", "age", "techs", "researching", "max_pop", "defeated",
 	"gather_mult", "mods", "stats", "champ_class", "champ_level", "champ_xp", "champ_points", "champ_ranks",
 	"champ_respawn", "passives", "bell"]
@@ -86,12 +86,17 @@ static func serialize(game: Game) -> Dictionary:
 			d["amove"] = u.state != Unit.MOVE
 		if u is Champion:
 			d["cds"] = u.cds
+		if u.recruit_group >= 0:
+			d["rg"] = u.recruit_group
 		if u.garrison_in != null:
 			d["gin"] = _v2(u.garrison_in.pos2())
 			if u.pre_node != null and is_instance_valid(u.pre_node):
 				d["pre"] = _v2(u.pre_node.pos2())
 				d["pre_farm"] = u.pre_node is Building
 		units.append(d)
+	var camps: Array = []
+	for c in game.camps:
+		camps.append({"stock": c.stock, "t": c.restock_t})
 	var shrines: Array = []
 	for s in game.shrines:
 		shrines.append({"o": s.owner_id, "c": s.capture, "by": s.capturer})
@@ -116,6 +121,7 @@ static func serialize(game: Game) -> Dictionary:
 		"buildings": blds,
 		"units": units,
 		"shrines": shrines,
+		"camps": camps,
 		"ais": ais,
 		"fog": Marshalls.raw_to_base64(game.fog_exp),
 		"cam": {"f": [game.cam.focus.x, game.cam.focus.z], "yaw": game.cam.yaw, "dist": game.cam.target_dist, "pitch": game.cam.pitch},
@@ -251,6 +257,9 @@ static func restore(game: Game, data: Dictionary) -> void:
 		var home := _to_v2(d["home"])
 		if home != Vector2.INF:
 			u.home = home
+		if d.has("rg"):
+			u.make_recruit(int(d["rg"]))
+			continue
 		restored.append([u, d])
 	# resume what everyone was doing
 	for pair in restored:
@@ -315,6 +324,13 @@ static func restore(game: Game, data: Dictionary) -> void:
 		s.capture = sh[i]["c"]
 		s.capturer = int(sh[i]["by"])
 		s._refresh()
+	var cs: Array = data.get("camps", [])
+	for i in mini(cs.size(), game.camps.size()):
+		var c: MercCamp = game.camps[i]
+		for k in cs[i]["stock"]:
+			if c.stock.has(k):
+				c.stock[k] = int(cs[i]["stock"][k])
+		c.restock_t = cs[i]["t"]
 	game.elapsed = data["elapsed"]
 	game.control_team = int(data["control_team"])
 	game.control_timer = data["control_timer"]

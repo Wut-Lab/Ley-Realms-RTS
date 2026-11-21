@@ -36,6 +36,9 @@ var rebalance_t := 0.0
 var rng := RandomNumberGenerator.new()
 var hidden_workers := 0
 var bell_t := -100.0
+var claim_unit: Unit = null
+var camp_runner: Unit = null
+var merc_t := 0.0
 
 
 func setup(g: Game, id: int, h: bool) -> void:
@@ -394,6 +397,7 @@ func _military(p: PlayerData, army: Array, mine: Array) -> void:
 			if u.state == Unit.IDLE or (u.state == Unit.AMOVE and not attacking) or (hard and u.pos2().distance_to(base) < 45.0 and u.state != Unit.ATTACK):
 				u.order_move(threat.pos2(), true)
 		return
+	_mercenaries(p, army)
 	# claim ley shrines
 	if not game.shrines.is_empty() and army.size() >= (4 if hard else 9) and game.elapsed >= game.peace_until * 0.5:
 		var want := 4 if hard else 2
@@ -442,8 +446,77 @@ func _military(p: PlayerData, army: Array, mine: Array) -> void:
 						u.order_move(tgt.pos2(), true)
 	if not attacking:
 		for u in avail:
-			if u.state == Unit.IDLE and u.pos2().distance_to(rally) > 9.0:
+			if u.state == Unit.IDLE and u.pos2().distance_to(rally) > 9.0 and u != camp_runner and u != claim_unit:
 				u.order_move(rally + Vector2(rng.randf_range(-3, 3), rng.randf_range(-3, 3)))
+
+
+func _free_unit(army: Array, near: Vector2) -> Unit:
+	var best: Unit = null
+	var bd := 1e9
+	for u in army:
+		if u in squad or u == claim_unit or u == camp_runner or u.state != Unit.IDLE:
+			continue
+		var d: float = u.pos2().distance_to(near)
+		if d < bd:
+			bd = d
+			best = u
+	return best
+
+
+## Send scouts to claim freeblades, and hire at mercenary camps when there's gold to spare.
+func _mercenaries(p: PlayerData, army: Array) -> void:
+	merc_t -= interval
+	if merc_t > 0.0:
+		return
+	merc_t = 4.0 if hard else 9.0
+	# freeblades: whoever arrives first gets the band
+	var busy := claim_unit != null and is_instance_valid(claim_unit) and claim_unit.alive and claim_unit.state == Unit.MOVE
+	if not busy and game.elapsed > (45.0 if hard else 200.0) and (hard or rng.randf() < 0.5):
+		claim_unit = null
+		var best = null
+		var bd := 1e9
+		for g in game.open_recruits():
+			var d: float = g[0].distance_to(base)
+			if d < bd and d < game.size * (0.55 if hard else 0.35):
+				bd = d
+				best = g[0]
+		if best != null:
+			var u := _free_unit(army, best)
+			if u:
+				claim_unit = u
+				u.order_move(best)
+	# mercenary camps
+	if game.camps.is_empty() or p.res["gold"] < (110.0 if hard else 220.0):
+		return
+	for c in game.camps:
+		if not c.has_unit_near(pid):
+			continue
+		var picks: Array = c.offers.duplicate()
+		picks.sort_custom(func(a, b): return Defs.UNITS[a]["age"] > Defs.UNITS[b]["age"])
+		for k in picks:
+			var cost: Dictionary = Defs.UNITS[k]["cost"]
+			if c.hire_check(pid, k) == "" and _spend_ok(p, cost) and p.res["gold"] - cost["gold"] >= (0.0 if hard else 80.0):
+				var hired: Unit = c.hire(pid, k)
+				if hired:
+					hired.order_move(rally)
+					if camp_runner != null and is_instance_valid(camp_runner) and camp_runner.pos2().distance_to(c.pos2()) < 12.0:
+						camp_runner.order_move(rally)
+						camp_runner = null
+				return
+	var running := camp_runner != null and is_instance_valid(camp_runner) and camp_runner.alive and camp_runner.state == Unit.MOVE
+	if not running and p.res["gold"] >= (150.0 if hard else 300.0):
+		var near_camp: MercCamp = null
+		var cd := 1e9
+		for c in game.camps:
+			var d: float = c.pos2().distance_to(base)
+			if d < cd and d < game.size * (0.6 if hard else 0.4):
+				cd = d
+				near_camp = c
+		if near_camp and not near_camp.has_unit_near(pid):
+			var u := _free_unit(army, near_camp.pos2())
+			if u:
+				camp_runner = u
+				u.order_move(near_camp.pos2() + Vector2(randf_range(-3, 3), randf_range(-3, 3)))
 
 
 func _pick_target(p: PlayerData) -> Entity:

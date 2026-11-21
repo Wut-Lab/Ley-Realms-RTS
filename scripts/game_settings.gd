@@ -34,6 +34,7 @@ var relief := 1
 var fog := true
 var reveal := false
 var monsters := true
+var mercs := true
 var shrines := true
 var start_age := 1
 var peace := 0
@@ -75,5 +76,5 @@ func to_dict() -> Dictionary:
 	return {
 		"size": MAP_SIZES[map_size], "biome": biome, "seed": map_seed, "players": num_ai + 1,
 		"abundance": abundance, "forests": forests, "water": water, "relief": relief,
-		"monsters": monsters, "shrines": shrines,
+		"monsters": monsters, "shrines": shrines, "mercs": mercs,
 	}

@@ -93,6 +93,9 @@ func pick(screen: Vector2, include_res: bool = true):
 			cands.append(b)
 	for s in game.shrines:
 		cands.append(s)
+	for mc in game.camps:
+		if game.fog_explored(mc.pos2()):
+			cands.append(mc)
 	if include_res:
 		cands.append_array(game.resources)
 	for e in cands:
@@ -101,8 +104,8 @@ func pick(screen: Vector2, include_res: bool = true):
 		if e is Entity:
 			r = e.radius if not e.is_building else e.size * 0.55
 			h = e.height * 0.5
-		elif e is Shrine:
-			r = 2.2
+		elif e is Shrine or e is MercCamp:
+			r = 2.4
 			h = 1.0
 		else:
 			r = maxf(e.radius, 0.6)

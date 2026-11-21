@@ -50,6 +50,9 @@ var stamp_cache := {}
 var check_t := 0.0
 var alert_t := {}
 var gate_cells := {}
+var camps: Array = []
+var recruit_groups := {}
+var recruit_t := 0.0
 var load_data: Dictionary = {}
 var save_slot := ""
 var autosave_t := 180.0
@@ -371,6 +374,32 @@ func _spawn_map_objects() -> void:
 				u.home = lp + off
 				u.rotation.y = randf() * TAU
 			i += 1
+	# mercenary camps and freeblade bands
+	for c in md.camps:
+		var cp: Vector2 = c["pos"]
+		var camp := MercCamp.new()
+		camp.setup(self, c["offers"])
+		camp.position = Vector3(cp.x, height_at(cp.x, cp.y), cp.y)
+		add_child(camp)
+		camps.append(camp)
+		_mark_cells(Rect2i(int(cp.x) - 1, int(cp.y) - 1, 3, 3), 1, true)
+	for gi in md.freeblades.size():
+		var fb: Dictionary = md.freeblades[gi]
+		var fp: Vector2 = fb["pos"]
+		var deco := MeshInstance3D.new()
+		deco.mesh = Models.mesh("freeblade_camp")
+		deco.position = Vector3(fp.x, height_at(fp.x, fp.y), fp.y)
+		add_child(deco)
+		recruit_groups[gi] = {"pos": fp, "units": []}
+		if not load_data.is_empty():
+			continue  # the band (or its absence) comes from the save
+		var j := 0
+		for mk in fb["units"]:
+			var u := spawn_unit(mk, 0, fp + Vector2.from_angle(j * 2.4 + 0.5) * 1.6)
+			if u:
+				u.make_recruit(gi)
+				u.rotation.y = randf() * TAU
+			j += 1
 
 
 func _spawn_starts() -> void:
@@ -510,6 +539,12 @@ func _process(delta: float) -> void:
 	prof["bld"] = prof.get("bld", 0) + t3 - t2
 	for s in shrines:
 		s.tick(delta)
+	for c in camps:
+		c.tick(delta)
+	recruit_t -= delta
+	if recruit_t <= 0.0:
+		recruit_t = 0.5
+		_check_recruits()
 	for pr in projectiles.duplicate():
 		pr.tick(delta)
 	for a in areas.duplicate():
@@ -612,7 +647,9 @@ func _autotest_report() -> void:
 		if p.champ_class != "":
 			line += " [%s Lv%d xp%d pts%d ranks%s casts%d %s doctrines%s]" % [p.champ_class, p.champ_level, p.champ_xp, p.champ_points, str(p.champ_ranks), p.stats.get("casts", 0), "alive" if p.champ != null else "dead", str(p.passives)]
 		line += " [garrisoned %d bell %s lost %d ups %s] " % [garrisoned_of(i).size(), p.bell, p.stats["lost"], str(p.techs.keys().filter(func(t): return t.begins_with("up_")))]
+		line += " [recruited %d hired %d mercs %s] " % [p.stats.get("recruited", 0), p.stats.get("hired", 0), str(units.filter(func(u): return u.pid == i and u.def.get("merc", false)).map(func(u): return u.kind))]
 		line += " P%d age%d pop%d/%d u%d b%d f%d w%d g%d m%d k%d%s" % [i, p.age, p.pop, p.pop_cap, nu, nb, p.res["food"], p.res["wood"], p.res["gold"], p.res["mana"], p.stats["killed"], " DEAD" if p.defeated else ""]
+	line += "\n    camps stock: %s  open freeblade bands: %d" % [str(camps.map(func(c): return c.stock)), open_recruits().size()]
 	print(line)
 	print("   PROF ms: ", prof.keys().map(func(k): return "%s=%d" % [k, prof[k] / 1000]))
 	prof.clear()
@@ -782,6 +819,8 @@ func find_enemy(p: Vector2, r: float, owner_id: int, attacker: Entity, units_onl
 	var peace := elapsed < peace_until and owner_id > 0
 	for u in units_near(p, r + 2.0):
 		if not u.alive or not is_enemy(owner_id, u.pid):
+			continue
+		if u.recruit_group >= 0:
 			continue
 		if peace and u.pid > 0:
 			continue
@@ -1198,7 +1237,7 @@ func allies_near(p: Vector2, r: float, owner_id: int) -> Array:
 func area_targets(p: Vector2, r: float, owner_id: int) -> Array:
 	var out: Array = []
 	for u in units_near(p, r + 2.0):
-		if u.alive and is_enemy(owner_id, u.pid) and u.edge_dist(p) <= r:
+		if u.alive and is_enemy(owner_id, u.pid) and u.edge_dist(p) <= r and u.recruit_group < 0:
 			out.append(u)
 	for b in buildings_near(p, r + 3.0):
 		if b.alive and is_enemy(owner_id, b.pid) and b.edge_dist(p) <= r:
@@ -1406,6 +1445,64 @@ func garrisoned_of(owner_id: int) -> Array:
 	return out
 
 
+# ======================================================================= freeblades
+func register_recruit(u: Unit, gid: int) -> void:
+	if not recruit_groups.has(gid):
+		recruit_groups[gid] = {"pos": u.pos2(), "units": []}
+	recruit_groups[gid]["units"].append(u)
+
+
+func _check_recruits() -> void:
+	for gid in recruit_groups.keys():
+		var g: Dictionary = recruit_groups[gid]
+		var members: Array = g["units"].filter(func(u): return is_instance_valid(u) and u.alive and u.recruit_group == gid)
+		g["units"] = members
+		if members.is_empty():
+			continue
+		var best_pid := -1
+		var bd := 1e9
+		for m in members:
+			for u in units_near(m.pos2(), Defs.RECRUIT_REACH + 1.0):
+				if u.pid > 0 and u.alive and u.recruit_group < 0:
+					var d: float = u.pos2().distance_to(m.pos2())
+					if d <= Defs.RECRUIT_REACH and d < bd:
+						bd = d
+						best_pid = u.pid
+		if best_pid > 0:
+			_claim_recruits(gid, members, best_pid)
+
+
+func _claim_recruits(gid: int, members: Array, owner_id: int) -> void:
+	var p: PlayerData = players[owner_id]
+	var names: Array = []
+	for m in members:
+		m.change_owner(owner_id)
+		p.pop += int(m.def["pop"])
+		p.stats["recruited"] = p.stats.get("recruited", 0) + 1
+		spawn_fx("levelup", m.position, 0.8, Color.WHITE)
+		names.append(m.def["name"])
+	recruit_groups[gid]["units"] = []
+	if not hud:
+		return
+	if owner_id == human:
+		Sfx.play("levelup", -4.0)
+		hud.message("Freeblades join your cause: %s!" % ", ".join(names), Color(1, 0.88, 0.45))
+	elif fog_visible(recruit_groups[gid]["pos"]) or not fog_on:
+		hud.message("%s recruited a band of freeblades." % p.name, Color(0.95, 0.75, 0.5))
+		hud.ping(recruit_groups[gid]["pos"])
+
+
+## Unclaimed freeblade bands as [center, member count].
+func open_recruits() -> Array:
+	var out: Array = []
+	for gid in recruit_groups:
+		var g: Dictionary = recruit_groups[gid]
+		var ms: Array = g["units"].filter(func(u): return is_instance_valid(u) and u.alive and u.recruit_group == gid)
+		if not ms.is_empty():
+			out.append([ms[0].pos2(), ms.size()])
+	return out
+
+
 func recalc_pop(owner_id: int) -> void:
 	var p: PlayerData = players[owner_id]
 	var cap := 0
@@ -1446,7 +1543,7 @@ func damage_vs(target: Entity, info: Dictionary) -> float:
 func apply_damage(target: Entity, info: Dictionary) -> void:
 	if target == null or not is_instance_valid(target) or not target.alive:
 		return
-	if target is Unit and target.garrison_in != null:
+	if target is Unit and (target.garrison_in != null or target.recruit_group >= 0):
 		return
 	var src = info.get("src")
 	if not is_instance_valid(src):
@@ -1461,7 +1558,7 @@ func splash_damage(p: Vector3, r: float, info: Dictionary, primary: Entity) -> v
 	var p2 := Vector2(p.x, p.z)
 	var hit_air := primary != null and is_instance_valid(primary) and primary.flying
 	for u in units_near(p2, r + 1.5):
-		if u.alive and is_enemy(owner_id, u.pid) and u.pos2().distance_to(p2) <= r + u.radius:
+		if u.alive and is_enemy(owner_id, u.pid) and u.pos2().distance_to(p2) <= r + u.radius and u.recruit_group < 0:
 			if u.flying and not hit_air:
 				continue
 			var mult := 1.0 if u == primary else 0.6
@@ -1715,6 +1812,9 @@ func cmd_smart(sel: Array, p: Vector2, target) -> void:
 	if us.is_empty():
 		return
 	var owner_id: int = us[0].pid
+	if target is Unit and target.recruit_group >= 0:
+		cmd_move(us, target.pos2())
+		return
 	if target is Entity and target.alive:
 		if is_enemy(owner_id, target.pid):
 			for u in us:

@@ -32,6 +32,7 @@ To make a standalone executable: **Project → Export…**, add a Windows/macOS/
 | **Gates** | 1-tile gates that open for you and your allies and block enemies (who must break them down). Build one in a wall gap or convert a wall section with **Make Gate** |
 | **Garrisons & Town Bell** | Shelter units in the Town Hall (12) or Watch Towers (5): they heal and each adds an arrow. **Town Bell** sends every peasant to shelter, **All Clear** sends them back to work. Destroyed buildings release their garrison. The AI rings the bell when raided |
 | **Unit upgrade lines** | Swordsman → Longswordsman → Blademaster, Spearman → Pikeman → Halberdier, Archer → Crossbowman → Arbalest, Knight → Paladin, Battle Mage → Sorcerer, Cleric → Hierophant, Dragon → Elder Dragon. Upgrades apply to existing and future units and change their look |
+| **Freeblades & mercenaries** | Neutral freeblade bands join the first player to reach them; Mercenary Camps sell unique units (Dwarf Ironbreaker, Elven Ranger, Ogre Brute, Stone Golem, Griffin Rider) to anyone with a unit nearby, with limited stock that restocks. The AI scouts for bands and hires too. Toggle in Skirmish Setup |
 | **Save & load** | Save to Quick Save or 3 slots from the pause menu, **Save & Quit**, **Continue** / **Load Game** on the title screen. Autosaves every 3 minutes and whenever the app is closed or sent to the background on a phone |
 | **Sound** | Synthesized effects for combat, gathering, construction, magic, alerts and notifications, plus a looping fantasy soundtrack. Music and effects volume in the pause menu and on the title screen |
 | **Phones & tablets** | Full touch controls, a larger touch-friendly UI, Android APK and web builds |
@@ -94,6 +95,7 @@ scripts/
   models.gd, model_builder.gd  procedural low-poly meshes and shaders
   game.gd                   match: world, pathfinding (AStarGrid2D), fog, combat, victory
   unit.gd, building.gd, entity.gd, resource_node.gd, shrine.gd, projectile.gd
+  merc_camp.gd              mercenary camps (freeblade logic lives in game.gd)
   champion.gd, area_effect.gd  hero levelling, abilities, doctrines, lingering spell areas
   touch_input.gd            touch-screen controls
   ai_controller.gd          Easy/Hard computer opponents

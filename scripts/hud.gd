@@ -591,11 +591,16 @@ func _refresh_selection() -> void:
 		var op: PlayerData = game.players[e.pid]
 		info_owner.text = "   " + op.name
 		info_owner.add_theme_color_override("font_color", op.color.lightened(0.3))
+		if e is Unit and e.recruit_group >= 0:
+			info_owner.text = "   Freeblades (neutral)"
+			info_owner.add_theme_color_override("font_color", Color(1, 0.9, 0.55))
 		info_hp.visible = true
 		info_hp.max_value = e.max_hp
 		info_hp.value = e.hp
 		info_hp_label.text = " %d / %d" % [e.hp, e.max_hp]
-		if e is Unit:
+		if e is Unit and e.recruit_group >= 0:
+			info_stats.text = "A band of freeblades looking for a cause. The first player to bring any unit within %d of them recruits the whole band.\n%s" % [int(Defs.RECRUIT_REACH), _unit_text(e)]
+		elif e is Unit:
 			info_stats.text = _unit_text(e)
 		else:
 			info_stats.text = _building_text(e)
@@ -611,6 +616,17 @@ func _refresh_selection() -> void:
 		info_hp.visible = false
 		info_hp_label.text = ""
 		info_stats.text = "%s: %d / %d remaining" % [Defs.RES_NAMES[e.rtype], e.amount, e.max_amount]
+	elif e is MercCamp:
+		info_owner.text = "   Neutral"
+		info_owner.add_theme_color_override("font_color", Color(0.9, 0.8, 0.6))
+		info_hp.visible = false
+		info_hp_label.text = ""
+		var offers: Array = []
+		for k in e.offers:
+			offers.append("%s (%d left)" % [Defs.UNITS[k]["name"], e.stock[k]])
+		info_stats.text = "Hire mercenaries here for gold. You need a unit within %d of the camp.\nOffers: %s\nRestocks in %ds.%s" % [
+			int(Defs.CAMP_REACH), ", ".join(offers), int(Defs.CAMP_RESTOCK - e.restock_t),
+			"" if e.has_unit_near(game.human) else "\nNone of your units are close enough yet."]
 	elif e is Shrine:
 		info_owner.text = ""
 		info_hp.visible = true
@@ -696,7 +712,16 @@ func _refresh_commands() -> void:
 	var p: PlayerData = game.players[game.human]
 	var b := ctl.selected_building()
 	var us := ctl.own_units()
-	if b and b.pid == game.human:
+	var camp: MercCamp = ctl.sel[0] if ctl.sel.size() == 1 and is_instance_valid(ctl.sel[0]) and ctl.sel[0] is MercCamp else null
+	if camp:
+		for i in camp.offers.size():
+			var k: String = camp.offers[i]
+			var d: Dictionary = Defs.UNITS[k]
+			var reason := camp.hire_check(game.human, k)
+			cmds[i] = {"label": k.capitalize(), "title": "Hire " + d["name"], "desc": d["desc"], "cost": d["cost"],
+				"extra": "HP %d  •  Attack %d  •  Pop %d  •  In stock %d" % [d["hp"], d["atk"], d["pop"], camp.stock[k]],
+				"ok": reason == "", "reason": reason, "act": func(): camp.hire(game.human, k)}
+	elif b and b.pid == game.human:
 		if not b.complete:
 			cmds[14] = {"label": "Cancel", "title": "Cancel construction", "desc": "Refunds 75% of the cost.", "ok": true,
 				"act": func(): _cancel_construction(b)}

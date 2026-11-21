@@ -141,5 +141,54 @@ func _run() -> void:
 	print("FT tower garrison ", tower.garrison.size())
 	tower.die(null)
 	print("FT tower destroyed: ejected alive ", pe.filter(func(u): return u.alive and u.garrison_in == null and u in g.units).size(), "/3")
+	# ---------------------------------------------------------------- freeblades & mercenary camps
+	game = g
+	var bands := g.open_recruits()
+	print("FT freeblade bands on map: ", bands.size(), "  camps: ", g.camps.size())
+	if not bands.is_empty():
+		var bp: Vector2 = bands[0][0]
+		var band: Array = []
+		for gid in g.recruit_groups:
+			for u in g.recruit_groups[gid]["units"]:
+				if is_instance_valid(u) and u.alive and u.recruit_group >= 0 and u.pos2().distance_to(bp) < 4.0:
+					band.append(u)
+		var foe2 := g.spawn_unit("swordsman", 2, bp + Vector2(6, 0))
+		await _wait(2.0)
+		print("FT recruits ignored by enemies: enemy attacking a recruit=", foe2.state == Unit.ATTACK and foe2.target in band, " find_enemy picks a recruit=", g.find_enemy(foe2.pos2(), 10.0, 2, foe2) in band)
+		foe2.die(null)
+		var pop0: int = g.players[h].pop
+		var scout := g.spawn_unit("knight", h, bp + Vector2(12, 0))
+		scout.order_move(bp + Vector2(1.5, 0))
+		await _wait(6.0)
+		print("FT claim band: members now owned by you=", band.filter(func(u): return u.pid == h).size(), "/", band.size(),
+			" kinds=", band.map(func(u): return u.kind), " pop %d -> %d" % [pop0, g.players[h].pop], " open bands left=", g.open_recruits().size())
+	if not g.camps.is_empty():
+		var camp: MercCamp = g.camps[0]
+		var k: String = camp.offers[0]
+		g.players[h].age = 3
+		g.players[h].res["gold"] = 2000.0
+		g.players[h].res["mana"] = 2000.0
+		g.players[h].res["food"] = 2000.0
+		for i in 4:
+			g.spawn_building("house", h, Game.snap_pos(2.5, g.buildings_of(h)[0].pos2() + Vector2(-10 + i * 3, 12)), true)
+		print("FT pop room: %d/%d" % [g.players[h].pop, g.players[h].pop_cap])
+		print("FT hire without a unit nearby: ", camp.hire_check(h, k))
+		var hirer := g.spawn_unit("knight", h, camp.pos2() + Vector2(4, 0))
+		await _wait(0.5)
+		var s0: int = camp.stock[k]
+		var g0: float = g.players[h].res["gold"]
+		var merc := camp.hire(h, k)
+		print("FT hired: ", merc.def["name"] if merc else "none", " stock %d -> %d gold %d -> %d" % [s0, camp.stock[k], g0, g.players[h].res["gold"]])
+		camp.hire(h, k)
+		print("FT hire until sold out: ", camp.hire_check(h, k))
+		g.save_to("slot1")
+		var open_before := g.open_recruits().size()
+		var stock_before: Dictionary = camp.stock.duplicate()
+		main.load_game("slot1")
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var g3: Game = main.current
+		print("FT after load: open bands %d (was %d), camp stock %s (was %s), mercs owned %d" % [g3.open_recruits().size(), open_before,
+			str(g3.camps[0].stock), str(stock_before), g3.units.filter(func(u): return u.pid == h and u.def.get("merc", false)).size()])
 	print("FT DONE")
 	get_tree().quit()

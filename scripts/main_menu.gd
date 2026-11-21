@@ -190,6 +190,7 @@ func _build_setup() -> void:
 	_option(g1, "abundance", "Resource deposits", GameSettings.ABUNDANCE_NAMES, gs.abundance)
 	_check(g1, "monsters", "Monster lairs", gs.monsters)
 	_check(g1, "shrines", "Ley Shrines", gs.shrines)
+	_check(g1, "mercs", "Mercenaries & Freeblades", gs.mercs)
 	g1.add_child(_lbl("Map seed", 15))
 	var sh := HBoxContainer.new()
 	seed_edit = LineEdit.new()
@@ -316,6 +317,9 @@ Spearmen counter knights. Archers, spearmen, towers and mages can strike flying 
 [b][color=#ffd166]Walls, Gates & Garrisons[/color][/b]
 Gates open for your units but stop enemies, who must break them down. Build one in a wall gap or select a wall section and press Make Gate. Units can garrison in the Town Hall (12) or Watch Towers (5): they heal and every one adds an arrow. Ring the Town Bell at your Town Hall to shelter all peasants, and press All Clear to send them back to work.
 
+[b][color=#ffd166]Freeblades & Mercenaries[/color][/b]
+Bands of neutral freeblades camp around the map (gold ring). The first player to bring any unit next to them recruits the whole band - the AI races for them too. At Mercenary Camps you can hire Dwarf Ironbreakers, Elven Rangers, Ogre Brutes, Stone Golems and Griffin Riders for gold while one of your units is nearby; stock restocks over time.
+
 [b][color=#ffd166]Upgrade Lines[/color][/b]
 Research upgrades at the barracks, stable, mage tower and dragon roost to promote every unit of a line, e.g. Swordsman to Longswordsman to Blademaster, Archer to Crossbowman to Arbalest, Knight to Paladin.
 
@@ -399,7 +403,7 @@ func _on_opt(key: String, v) -> void:
 	if key == "champion_class":
 		info_label.text = Defs.CHAMPIONS[Defs.CHAMPION_ORDER[v]]["name"] + ": " + Defs.CHAMPIONS[Defs.CHAMPION_ORDER[v]]["blurb"]
 		return
-	if key in ["map_size", "biome", "relief", "water", "forests", "abundance", "monsters", "shrines", "num_ai"]:
+	if key in ["map_size", "biome", "relief", "water", "forests", "abundance", "monsters", "shrines", "num_ai", "mercs"]:
 		preview_t = 0.15
 	if key == "victory" and v > 0 and not gs.shrines:
 		gs.shrines = true
@@ -446,8 +450,8 @@ func _regen_preview() -> void:
 	var counts := {"tree": 0, "gold_mine": 0, "mana_crystal": 0, "berry": 0}
 	for r in md.resources:
 		counts[r["type"]] += 1
-	info_label.text = "%d×%d  •  %d players  •  Trees %d  •  Gold mines %d  •  Mana crystals %d  •  Berry bushes %d  •  Shrines %d  •  Lairs %d\nYour start is marked in your colour; opponents in white. Cyan = Ley Shrines, red = monster lairs." % [
-		md.size, md.size, md.starts.size(), counts["tree"], counts["gold_mine"], counts["mana_crystal"], counts["berry"], md.shrines.size(), md.lairs.size()]
+	info_label.text = "%d×%d  •  %d players  •  Trees %d  •  Gold mines %d  •  Mana crystals %d  •  Berry bushes %d  •  Shrines %d  •  Lairs %d  •  Camps %d  •  Freeblades %d\nYour start is marked in your colour; opponents in white. Cyan = Ley Shrines, red = monster lairs, orange = mercenary camps, pale gold = freeblades." % [
+		md.size, md.size, md.starts.size(), counts["tree"], counts["gold_mine"], counts["mana_crystal"], counts["berry"], md.shrines.size(), md.lairs.size(), md.camps.size(), md.freeblades.size()]
 
 
 func back_pressed() -> void:

@@ -104,6 +104,38 @@ const UNITS := {
 		"armor": 2, "parmor": 2, "sight": 7, "cost": {}, "time": 1, "pop": 0, "age": 1,
 		"cls": "monster", "radius": 0.8, "model": "troll", "height": 2.6, "bounty": {"gold": 100}, "regen": 1.0,
 	},
+	# ---- mercenaries: never trained at home; recruited as Freeblades or hired at Mercenary Camps
+	"ironbreaker": {
+		"name": "Dwarf Ironbreaker", "desc": "Mercenary. A heavily armored dwarf with a siege axe.",
+		"hp": 220, "atk": 13, "atk_type": "melee", "range": 0.6, "cooldown": 1.4, "speed": 3.0,
+		"armor": 5, "parmor": 5, "sight": 8, "cost": {"gold": 110}, "time": 1, "pop": 1, "age": 1,
+		"cls": "infantry", "radius": 0.42, "model": "ironbreaker", "height": 1.3, "bonus": {"building": 12}, "merc": true,
+	},
+	"ranger": {
+		"name": "Elven Ranger", "desc": "Mercenary. Swift archer with exceptional range and sight.",
+		"hp": 70, "atk": 8, "atk_type": "pierce", "range": 9.0, "cooldown": 1.5, "speed": 4.2,
+		"armor": 0, "parmor": 2, "sight": 12, "cost": {"gold": 95}, "time": 1, "pop": 1, "age": 1,
+		"cls": "ranged", "radius": 0.35, "model": "ranger", "height": 1.7, "projectile": "arrow", "bonus": {"flying": 4}, "merc": true,
+	},
+	"ogre": {
+		"name": "Ogre Brute", "desc": "Mercenary. A huge brute that smashes anything in reach.",
+		"hp": 420, "atk": 22, "atk_type": "melee", "range": 0.8, "cooldown": 2.0, "speed": 3.2,
+		"armor": 2, "parmor": 3, "sight": 8, "cost": {"gold": 170, "food": 50}, "time": 1, "pop": 2, "age": 2,
+		"cls": "infantry", "radius": 0.75, "model": "ogre", "height": 2.4, "scale": 1.25, "merc": true,
+	},
+	"golem": {
+		"name": "Stone Golem", "desc": "Mercenary. A rune-bound construct: nearly immune to arrows, crushes buildings, weak to magic.",
+		"hp": 650, "atk": 24, "atk_type": "melee", "range": 0.8, "cooldown": 2.4, "speed": 2.3,
+		"armor": 7, "parmor": 10, "sight": 7, "cost": {"gold": 160, "mana": 120}, "time": 1, "pop": 3, "age": 2,
+		"cls": "construct", "radius": 0.8, "model": "golem", "height": 2.6, "scale": 1.2, "bonus": {"building": 30}, "merc": true,
+	},
+	"griffin": {
+		"name": "Griffin Rider", "desc": "Mercenary. A fast flying archer on a griffin.",
+		"hp": 240, "atk": 11, "atk_type": "pierce", "range": 4.5, "cooldown": 1.3, "speed": 6.5,
+		"armor": 1, "parmor": 2, "sight": 12, "cost": {"gold": 200, "mana": 60}, "time": 1, "pop": 2, "age": 3,
+		"cls": "flying", "radius": 0.9, "model": "griffin", "height": 1.6, "scale": 1.1, "flying": true,
+		"projectile": "arrow", "merc": true,
+	},
 	"champ_warlord": {
 		"name": "Warlord", "desc": "Your champion. A front-line fighter who leads from the front.",
 		"hp": 560, "atk": 20, "atk_type": "melee", "range": 0.8, "cooldown": 1.2, "speed": 4.4,
@@ -196,6 +228,15 @@ const BUILDINGS := {
 		"trains": ["dragon"], "research": ["up_elder_dragon"], "sight": 8, "armor": 3, "parmor": 9, "height": 5.0,
 	},
 }
+
+const MERCS := ["ironbreaker", "ranger", "ogre", "golem", "griffin"]
+const FREEBLADE_BANDS := [["ironbreaker", "ironbreaker"], ["ranger", "ranger", "ranger"], ["ironbreaker", "ranger"],
+	["ogre"], ["golem"], ["ranger", "ranger"], ["griffin"]]
+const CAMP_STOCK := 2
+const CAMP_MAX_STOCK := 3
+const CAMP_RESTOCK := 75.0
+const CAMP_REACH := 9.0
+const RECRUIT_REACH := 4.5
 
 const BUILD_MENU := ["house", "farm", "storehouse", "barracks", "blacksmith", "tower", "wall",
 	"town_hall", "stable", "mage_tower", "workshop", "dragon_roost", "gate"]

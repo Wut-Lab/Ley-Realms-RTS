@@ -36,6 +36,8 @@ class MapData:
 	var resources: Array = []
 	var shrines: Array = []
 	var lairs: Array = []
+	var camps: Array = []
+	var freeblades: Array = []
 	var biome := 0
 
 	func h(x: int, z: int) -> float:
@@ -295,7 +297,37 @@ static func generate(cfg: Dictionary) -> MapData:
 			if h < wl:
 				c = c.darkened(clampf((wl - h) * 0.3, 0.0, 0.6))
 			md.colors[z * vs + x] = c
+
+	# ---- mercenaries (placed last so existing seeds keep the same terrain and resources)
+	if cfg.get("mercs", false):
+		var n_camps := maxi(2, n_players / 2 + 1)
+		for i in n_camps:
+			var p = _random_far(ctx, 30.0, 2)
+			if p == null or _near_any(p, md.shrines, 10.0) or _near_any(p, md.lairs.map(func(l): return l["pos"]), 10.0):
+				continue
+			_mark_disc(occ, size, p, 3.5)
+			var offers: Array = Defs.MERCS.duplicate()
+			for k in range(offers.size() - 1, 0, -1):
+				var j := rng.randi() % (k + 1)
+				var tmp = offers[k]
+				offers[k] = offers[j]
+				offers[j] = tmp
+			md.camps.append({"pos": p, "offers": offers.slice(0, 3)})
+		for i in n_players + 1:
+			var p = _random_far(ctx, 26.0, 2)
+			if p == null or _near_any(p, md.shrines, 8.0):
+				continue
+			_mark_disc(occ, size, p, 2.5)
+			var band: Array = Defs.FREEBLADE_BANDS[rng.randi() % Defs.FREEBLADE_BANDS.size()]
+			md.freeblades.append({"pos": p, "units": band})
 	return md
+
+
+static func _near_any(p: Vector2, pts: Array, d: float) -> bool:
+	for q in pts:
+		if p.distance_to(q) < d:
+			return true
+	return false
 
 
 static func _soften(md: MapData, p: Vector2, r: float, lo: float, hi: float) -> void:
@@ -432,6 +464,10 @@ static func preview_image(md: MapData, px: int, with_objects: bool = true) -> Im
 			_dot(img, s / sc, 3, Color(0.4, 0.95, 1.0))
 		for l in md.lairs:
 			_dot(img, l["pos"] / sc, 2, Color(0.7, 0.1, 0.1))
+		for c in md.camps:
+			_dot(img, c["pos"] / sc, 3, Color(1.0, 0.55, 0.1))
+		for f in md.freeblades:
+			_dot(img, f["pos"] / sc, 2, Color(1.0, 0.95, 0.6))
 	return img
 
 

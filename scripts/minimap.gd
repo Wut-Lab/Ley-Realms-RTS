@@ -76,6 +76,14 @@ func _redraw_image() -> void:
 			for dx in range(-1, 2):
 				if absi(dx) + absi(dy) <= 1:
 					_put(b, x + dx, y + dy, c)
+	for c in game.camps:
+		if fog_on and not game.fog_explored(c.pos2()):
+			continue
+		var x := int(c.position.x * sc)
+		var y := int(c.position.z * sc)
+		for dy in range(-1, 2):
+			for dx in range(-1, 2):
+				_put(b, x + dx, y + dy, Color(1.0, 0.55, 0.1))
 	for bl in game.buildings:
 		if not bl.visible:
 			continue
@@ -87,7 +95,7 @@ func _redraw_image() -> void:
 	for u in game.units:
 		if not u.visible or not u.alive:
 			continue
-		var c: Color = game.players[u.pid].color.lightened(0.2)
+		var c: Color = game.players[u.pid].color.lightened(0.2) if u.recruit_group < 0 else Color(1.0, 0.95, 0.6)
 		var x := int(u.position.x * sc)
 		var y := int(u.position.z * sc)
 		_put(b, x, y, c)

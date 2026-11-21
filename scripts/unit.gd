@@ -41,6 +41,8 @@ var garrison_in: Building = null
 var gtarget: Building = null
 var pre_node = null
 var gate_t := 0.0
+var recruit_group := -1
+var recruit_mark: MeshInstance3D
 # status effects (champion abilities)
 var stun_t := 0.0
 var slow_t := 0.0
@@ -314,6 +316,39 @@ func set_def(nd: Dictionary) -> void:
 	mesh_i.mesh = Models.mesh(def["model"], player().color, int(def.get("tier", 0)))
 
 
+## Neutral freeblade waiting to be claimed by the first player who reaches it.
+func make_recruit(gid: int) -> void:
+	recruit_group = gid
+	state = IDLE
+	if recruit_mark == null:
+		recruit_mark = MeshInstance3D.new()
+		recruit_mark.mesh = Models.mesh("recruit_mark")
+		recruit_mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		recruit_mark.scale = Vector3.ONE * maxf(radius * 2.0, 0.9)
+		recruit_mark.position.y = -fly_h if flying else 0.0
+		add_child(recruit_mark)
+	game.register_recruit(self, gid)
+
+
+## Changes hands (freeblades joining a player).
+func change_owner(new_pid: int) -> void:
+	pid = new_pid
+	recruit_group = -1
+	if recruit_mark:
+		recruit_mark.queue_free()
+		recruit_mark = null
+	def = game.unit_def(pid, kind)
+	mesh_i.mesh = Models.mesh(def["model"], player().color, int(def.get("tier", 0)))
+	if ring:
+		ring.queue_free()
+		ring = null
+	selected = false
+	home = pos2()
+	_clear()
+	state = IDLE
+	visible = true
+
+
 func order_hold() -> void:
 	_clear()
 	state = IDLE
@@ -362,6 +397,8 @@ func tick(delta: float) -> void:
 
 func _idle(delta: float) -> void:
 	idle_time += delta
+	if recruit_group >= 0:
+		return
 	if scan_t > 0.0:
 		return
 	scan_t = 0.5

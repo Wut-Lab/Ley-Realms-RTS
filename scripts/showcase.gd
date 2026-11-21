@@ -10,6 +10,9 @@ func _ready() -> void:
 
 func _run() -> void:
 	await get_tree().process_frame
+	if "--mercshot" in OS.get_cmdline_user_args():
+		await _mercs()
+		return
 	var h := game.human
 	var p: PlayerData = game.players[h]
 	p.age = 3
@@ -63,5 +66,32 @@ func _run() -> void:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	get_viewport().get_texture().get_image().save_png(OS.get_user_data_dir() + "/showcase.png")
+	print("SHOWCASE saved")
+	get_tree().quit()
+
+
+func _mercs() -> void:
+	var h := game.human
+	game.players[h].age = 3
+	var camp: MercCamp = game.camps[0]
+	var c := camp.pos2()
+	var kinds := ["ironbreaker", "ranger", "ogre", "golem", "griffin"]
+	for i in kinds.size():
+		var u := game.spawn_unit(kinds[i], h, c + Vector2(-5.0 + i * 2.4, 5.0))
+		u.order_hold()
+		u.rotation.y = 0.0
+	# a neutral band beside the camp
+	for i in 2:
+		var r := game.spawn_unit("ironbreaker", 0, c + Vector2(5.5 + i * 1.3, 1.0))
+		r.make_recruit(99)
+	game.cam.center_on(c + Vector2(0.5, 3.0))
+	game.cam.dist = 17.0
+	game.cam.target_dist = 17.0
+	game.cam.pitch = deg_to_rad(45.0)
+	game.ctl.set_selection([camp])
+	for i in 30:
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(OS.get_user_data_dir() + "/mercs.png")
 	print("SHOWCASE saved")
 	get_tree().quit()
