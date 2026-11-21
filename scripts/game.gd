@@ -82,6 +82,10 @@ func _ready() -> void:
 	ctl = PlayerController.new()
 	ctl.game = self
 	add_child(ctl)
+	if gs.touch_active:
+		var ti := TouchInput.new()
+		ti.game = self
+		add_child(ti)
 	hud = HUD.new()
 	hud.game = self
 	add_child(hud)
@@ -92,11 +96,15 @@ func _ready() -> void:
 			ai.setup(self, p.id, p.ai_hard)
 			ais.append(ai)
 			add_child(ai)
-	if gs.autotest and not "--uitest" in OS.get_cmdline_user_args():
+	if gs.autotest and not "--uitest" in OS.get_cmdline_user_args() and not "--touchtest" in OS.get_cmdline_user_args():
 		var ai := AIController.new()
 		ai.setup(self, human, true)
 		ais.append(ai)
 		add_child(ai)
+	if "--touchtest" in OS.get_cmdline_user_args():
+		var tt = load("res://scripts/touch_test.gd").new()
+		tt.game = self
+		add_child(tt)
 	if "--uitest" in OS.get_cmdline_user_args():
 		var t = load("res://scripts/ui_test.gd").new()
 		t.game = self
@@ -136,7 +144,10 @@ func _build_environment() -> void:
 	sun = DirectionalLight3D.new()
 	sun.light_color = bd["sun"]
 	sun.light_energy = 1.25
-	sun.shadow_enabled = true
+	sun.shadow_enabled = not GameSettings.low_quality
+	if GameSettings.low_quality:
+		env.glow_enabled = false
+		get_viewport().msaa_3d = Viewport.MSAA_DISABLED
 	sun.directional_shadow_max_distance = 120.0
 	sun.rotation = Vector3(deg_to_rad(-52), deg_to_rad(-35), 0)
 	add_child(sun)
@@ -564,7 +575,7 @@ func _autotest_report() -> void:
 				st[key] = st.get(key, 0) + 1
 		line += "\n    P%d workers %s\n   " % [i, str(st)]
 		if p.champ_class != "":
-			line += " [%s Lv%d xp%d pts%d ranks%s casts%d %s]" % [p.champ_class, p.champ_level, p.champ_xp, p.champ_points, str(p.champ_ranks), p.stats.get("casts", 0), "alive" if p.champ != null else "dead"]
+			line += " [%s Lv%d xp%d pts%d ranks%s casts%d %s doctrines%s]" % [p.champ_class, p.champ_level, p.champ_xp, p.champ_points, str(p.champ_ranks), p.stats.get("casts", 0), "alive" if p.champ != null else "dead", str(p.passives)]
 		line += " P%d age%d pop%d/%d u%d b%d f%d w%d g%d m%d k%d%s" % [i, p.age, p.pop, p.pop_cap, nu, nb, p.res["food"], p.res["wood"], p.res["gold"], p.res["mana"], p.stats["killed"], " DEAD" if p.defeated else ""]
 	print(line)
 	print("   PROF ms: ", prof.keys().map(func(k): return "%s=%d" % [k, prof[k] / 1000]))
@@ -1092,6 +1103,50 @@ func grant_xp(victim: Entity, killer: Entity) -> void:
 			c.add_xp(amount * 0.5)
 
 
+func choose_passive(owner_id: int, id: String) -> bool:
+	var p: PlayerData = players[owner_id]
+	if not (id in p.next_passive_options()):
+		return false
+	p.passives.append(id)
+	var m: Dictionary = p.mods
+	match id:
+		"drill": m["inf_mult"] *= 1.15
+		"eagle_eye":
+			m["ranged_range"] += 1.0
+			m["range"] += 1.0
+			m["ranged_mult"] *= 1.10
+		"quartermaster":
+			for r in Defs.RES:
+				m[r] += 0.12
+		"shield_wall":
+			m["armor"] += 1.0
+			m["parmor"] += 1.0
+		"swift_march": m["speed_mult"] *= 1.12
+		"field_medic": m["regen"] += 0.6
+		"siege_masters": m["siege_mult"] *= 1.35
+		"veterans": _scale_hp(owner_id, 1.15)
+		"arcane_attunement":
+			m["magic"] += 0.25
+			m["mana"] += 0.2
+		"cavalry_doctrine":
+			m["cav_mult"] *= 1.2
+			m["cav_speed"] *= 1.1
+		"legendary":
+			m["atk_mult"] *= 1.1
+			_scale_hp(owner_id, 1.1)
+	if owner_id == human and hud:
+		hud.message("Doctrine adopted: %s" % Defs.PASSIVES[id]["name"], Color(1, 0.85, 0.4))
+	return true
+
+
+func _scale_hp(owner_id: int, f: float) -> void:
+	players[owner_id].mods["hp_mult"] *= f
+	for u in units:
+		if u.pid == owner_id and u.alive:
+			u.max_hp *= f
+			u.hp *= f
+
+
 func allies_near(p: Vector2, r: float, owner_id: int) -> Array:
 	var out: Array = []
 	for u in units_near(p, r + 1.0):
@@ -1146,6 +1201,8 @@ func damage_vs(target: Entity, info: Dictionary) -> float:
 	var bonus: Dictionary = info["bonus"]
 	if bonus.has(target.cls):
 		dmg += bonus[target.cls]
+	if target.is_building and info.has("owner") and info["owner"] > 0:
+		dmg *= players[info["owner"]].mods["siege_mult"]
 	match info["type"]:
 		"melee": dmg -= target.armor_val()
 		"pierce": dmg -= target.parmor_val()
@@ -1203,6 +1260,8 @@ func on_unit_died(u: Unit, killer: Entity) -> void:
 		players[u.pid].stats["lost"] += 1
 	if killer != null and is_instance_valid(killer) and killer.pid > 0:
 		players[killer.pid].stats["killed"] += 1
+		if "spoils" in players[killer.pid].passives and is_enemy(killer.pid, u.pid):
+			players[killer.pid].refund({"gold": 6, "mana": 3})
 		if u.def.has("bounty"):
 			players[killer.pid].refund(u.def["bounty"])
 			if killer.pid == human:

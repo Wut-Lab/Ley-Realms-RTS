@@ -52,6 +52,10 @@ var armor_buff_t := 0.0
 var status_i: MeshInstance3D
 var status_key := ""
 var status_check := 0.0
+var aura_t := 0.0
+var aura_atk := 0.0
+var aura_regen := 0.0
+var aura_dr := 0.0
 
 
 func setup(g: Game, k: String, owner_id: int) -> void:
@@ -67,6 +71,7 @@ func setup(g: Game, k: String, owner_id: int) -> void:
 	max_hp = def["hp"]
 	if k == "knight":
 		max_hp += player().mods["knight_hp"]
+	max_hp *= player().mods["hp_mult"]
 	hp = max_hp
 	fly_h = 4.2 if flying else 0.0
 	body = Node3D.new()
@@ -94,6 +99,13 @@ func atk_val() -> float:
 		"magic": a *= m["magic"]
 	if rally_t > 0.0:
 		a *= rally_mult
+	a *= m["atk_mult"]
+	match cls:
+		"infantry": a *= m["inf_mult"]
+		"ranged": a *= m["ranged_mult"]
+		"cavalry", "flying": a *= m["cav_mult"]
+	if aura_t > 0.0:
+		a *= 1.0 + aura_atk
 	return a
 
 
@@ -101,6 +113,8 @@ func range_val() -> float:
 	var r: float = def["range"]
 	if def["atk_type"] == "pierce":
 		r += player().mods["range"]
+	elif cls == "ranged":
+		r += player().mods["ranged_range"]
 	return r
 
 
@@ -113,7 +127,9 @@ func parmor_val() -> float:
 
 
 func cur_speed() -> float:
-	var s := speed
+	var s: float = speed * player().mods["speed_mult"]
+	if cls == "cavalry" or cls == "flying":
+		s *= player().mods["cav_speed"]
 	if slow_t > 0.0:
 		s *= 0.5
 	if rally_t > 0.0:
@@ -131,6 +147,7 @@ func _tick_status(delta: float) -> void:
 	dr_t = maxf(0.0, dr_t - delta)
 	invuln_t = maxf(0.0, invuln_t - delta)
 	armor_buff_t = maxf(0.0, armor_buff_t - delta)
+	aura_t = maxf(0.0, aura_t - delta)
 	status_check -= delta
 	if status_check > 0.0:
 		return
@@ -274,7 +291,11 @@ func tick(delta: float) -> void:
 	scan_t -= delta
 	repath_t -= delta
 	moving = false
-	if def.has("regen") and hp < max_hp:
+	if hp < max_hp and pid > 0:
+		var rg: float = def.get("regen", 0.0) + player().mods["regen"] + (aura_regen if aura_t > 0.0 else 0.0)
+		if rg > 0.0:
+			hp = minf(max_hp, hp + rg * delta)
+	elif def.has("regen") and hp < max_hp:
 		hp = minf(max_hp, hp + def["regen"] * delta)
 	match state:
 		IDLE: _idle(delta)
@@ -701,6 +722,8 @@ func take_damage(amount: float, attacker: Entity) -> void:
 		return
 	if dr_t > 0.0:
 		amount *= 1.0 - dr
+	if aura_t > 0.0 and aura_dr > 0.0:
+		amount *= 1.0 - aura_dr
 	if ward > 0.0:
 		var absorbed := minf(ward, amount)
 		ward -= absorbed

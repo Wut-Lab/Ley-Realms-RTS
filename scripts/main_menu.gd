@@ -183,6 +183,9 @@ func _build_setup() -> void:
 	_option(g2, "peace", "Peace treaty", GameSettings.PEACE_NAMES, gs.peace)
 	_option(g2, "speed", "Game speed", GameSettings.SPEED_NAMES, gs.speed)
 	_check(g2, "fog", "Fog of war", gs.fog)
+	_section(g2, "Device")
+	_option(g2, "touch_mode", "Controls", GameSettings.TOUCH_NAMES, gs.touch_mode)
+	_option(g2, "quality", "Graphics", GameSettings.QUALITY_NAMES, gs.quality)
 	_check(g2, "reveal", "Start with map explored", gs.reveal)
 
 	# preview
@@ -198,7 +201,8 @@ func _build_setup() -> void:
 	var frame := PanelContainer.new()
 	pv.add_child(frame)
 	preview = TextureRect.new()
-	preview.custom_minimum_size = Vector2(400, 400)
+	var pv_size := 320 if GameSettings.touch_active else 400
+	preview.custom_minimum_size = Vector2(pv_size, pv_size)
 	preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	preview.stretch_mode = TextureRect.STRETCH_SCALE
 	preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -324,6 +328,9 @@ func _on_opt(key: String, v) -> void:
 		"start_age": gs.start_age = v + 1
 		"player_color": gs.player_color = v + 1
 		_: gs.set(key, v)
+	if key == "touch_mode" or key == "quality":
+		gs.apply_device_settings(get_window())
+		return
 	if key == "champion_class":
 		info_label.text = Defs.CHAMPIONS[Defs.CHAMPION_ORDER[v]]["name"] + ": " + Defs.CHAMPIONS[Defs.CHAMPION_ORDER[v]]["blurb"]
 		return
@@ -376,6 +383,15 @@ func _regen_preview() -> void:
 		counts[r["type"]] += 1
 	info_label.text = "%d×%d  •  %d players  •  Trees %d  •  Gold mines %d  •  Mana crystals %d  •  Berry bushes %d  •  Shrines %d  •  Lairs %d\nYour start is marked in your colour; opponents in white. Cyan = Ley Shrines, red = monster lairs." % [
 		md.size, md.size, md.starts.size(), counts["tree"], counts["gold_mine"], counts["mana_crystal"], counts["berry"], md.shrines.size(), md.lairs.size()]
+
+
+func back_pressed() -> void:
+	if setup.visible:
+		_hide_setup()
+	elif how.visible:
+		_hide_how()
+	else:
+		get_tree().quit()
 
 
 func _start() -> void:

@@ -36,7 +36,7 @@ func display_name() -> String:
 
 func refresh_stats(full: bool = false) -> void:
 	var frac := 1.0 if full or max_hp <= 0.0 else hp / max_hp
-	max_hp = def["hp"] * (1.0 + 0.12 * (level() - 1))
+	max_hp = def["hp"] * (1.0 + 0.12 * (level() - 1)) * player().mods["hp_mult"]
 	hp = max_hp * frac
 
 
@@ -153,11 +153,34 @@ func tick(delta: float) -> void:
 	super.tick(delta)
 	if alive:
 		add_xp(0.4 * delta)
-	if (not player().human or GameSettings.autotest) and alive:
+		_auras(delta)
+	if (not player().human or (GameSettings.autotest and not GameSettings.ui_test)) and alive:
 		ai_t -= delta
 		if ai_t <= 0.0:
 			ai_t = 0.6 if player().ai_hard else 1.4
 			_ai_think()
+
+
+var aura_tick := 0.0
+
+
+func _auras(delta: float) -> void:
+	aura_tick -= delta
+	if aura_tick > 0.0:
+		return
+	aura_tick = 0.5
+	var ps: Array = player().passives
+	if not ("command_aura" in ps or "battle_hymn" in ps or "unbreakable" in ps):
+		return
+	var r := 12.0 if "unbreakable" in ps else 10.0
+	for u in game.allies_near(pos2(), r, pid):
+		if u.pid != pid:
+			continue
+		var d: float = u.pos2().distance_to(pos2())
+		u.aura_t = 0.7
+		u.aura_atk = 0.2 if "command_aura" in ps and d <= 10.0 else 0.0
+		u.aura_regen = 3.0 if "battle_hymn" in ps and d <= 10.0 else 0.0
+		u.aura_dr = 0.25 if "unbreakable" in ps else 0.0
 
 
 func _cast(i: int, p: Vector2) -> void:
@@ -254,6 +277,9 @@ func die(killer: Entity) -> void:
 # ---------------------------------------------------------------- AI use
 func _ai_think() -> void:
 	var p := player()
+	while p.passive_pending() > 0:
+		var opts: Array = p.next_passive_options()
+		game.choose_passive(pid, opts[randi() % opts.size()])
 	# spend skill points: ultimate first, then the lowest-ranked ability
 	while p.champ_points > 0:
 		var best := -1

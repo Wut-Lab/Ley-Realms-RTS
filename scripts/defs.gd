@@ -286,3 +286,33 @@ static func rank_level(a: Dictionary, rank: int) -> int:
 	if a.get("ult", false):
 		return 6 if rank <= 1 else 9
 	return rank * 2 - 1
+
+
+# ---------------------------------------------------------------- champion doctrines (army passives)
+# At each listed champion level the player picks one of three doctrines.
+# "aura": only affects units within the radius of a living champion; otherwise army-wide and permanent.
+const PASSIVE_TIERS := [
+	{"level": 2, "options": ["drill", "eagle_eye", "quartermaster"]},
+	{"level": 4, "options": ["shield_wall", "swift_march", "field_medic"]},
+	{"level": 6, "options": ["command_aura", "battle_hymn", "siege_masters"]},
+	{"level": 8, "options": ["veterans", "arcane_attunement", "cavalry_doctrine"]},
+	{"level": 10, "options": ["legendary", "unbreakable", "spoils"]},
+]
+
+const PASSIVES := {
+	"drill": {"name": "Drill Sergeant", "desc": "Infantry deal +15% damage."},
+	"eagle_eye": {"name": "Eagle Eye", "desc": "Ranged units and towers get +1 range; ranged units deal +10% damage."},
+	"quartermaster": {"name": "Quartermaster", "desc": "Peasants gather all resources 12% faster."},
+	"shield_wall": {"name": "Shield Wall", "desc": "All units gain +1 armor and +1 pierce armor."},
+	"swift_march": {"name": "Swift March", "desc": "All units move 12% faster."},
+	"field_medic": {"name": "Field Medic", "desc": "All units regenerate 0.6 HP per second."},
+	"command_aura": {"name": "Command Aura", "desc": "Aura: allies within 10 of your champion deal +20% damage.", "aura": 10.0},
+	"battle_hymn": {"name": "Battle Hymn", "desc": "Aura: allies within 10 of your champion regenerate 3 HP per second.", "aura": 10.0},
+	"siege_masters": {"name": "Siege Masters", "desc": "All units deal +35% damage to buildings."},
+	"veterans": {"name": "Veteran Recruits", "desc": "All units have +15% maximum hit points."},
+	"arcane_attunement": {"name": "Arcane Attunement", "desc": "+25% magic damage and healing, +20% mana gathering."},
+	"cavalry_doctrine": {"name": "Cavalry Doctrine", "desc": "Knights and dragons deal +20% damage and move 10% faster."},
+	"legendary": {"name": "Legendary Leader", "desc": "All units deal +10% damage and have +10% maximum hit points."},
+	"unbreakable": {"name": "Unbreakable", "desc": "Aura: allies within 12 of your champion take 25% less damage.", "aura": 12.0},
+	"spoils": {"name": "Spoils of War", "desc": "Every enemy your army kills yields 6 gold and 3 mana."},
+}

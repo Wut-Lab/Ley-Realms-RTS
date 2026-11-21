@@ -53,7 +53,7 @@ func _process(delta: float) -> void:
 		yaw += real_dt * 1.5
 	if Input.is_key_pressed(KEY_PAGEDOWN):
 		yaw -= real_dt * 1.5
-	if edge_scroll and DisplayServer.window_is_focused() and not GameSettings.autotest:
+	if edge_scroll and not GameSettings.touch_active and DisplayServer.window_is_focused() and not GameSettings.autotest:
 		var vp := get_viewport()
 		var mp := vp.get_mouse_position()
 		var vs := vp.get_visible_rect().size
@@ -83,6 +83,31 @@ func _apply() -> void:
 	var off := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * dist
 	cam.position = off
 	cam.look_at(focus, Vector3.UP)
+
+
+## Touch: drag the map so the ground under `from` ends up under `to`.
+func drag_screen(from: Vector2, to: Vector2) -> void:
+	var a = ground_at(from)
+	var b = ground_at(to)
+	if a == null or b == null:
+		return
+	var d: Vector3 = a - b
+	focus.x += d.x
+	focus.z += d.z
+	focus.x = clampf(focus.x, 0, game.size)
+	focus.z = clampf(focus.z, 0, game.size)
+	_apply()
+
+
+func pinch(scale_factor: float) -> void:
+	target_dist = clampf(target_dist / scale_factor, 14.0, 90.0)
+	dist = target_dist
+	_apply()
+
+
+func twist(angle: float) -> void:
+	yaw -= angle
+	_apply()
 
 
 func center_on(p: Vector2) -> void:

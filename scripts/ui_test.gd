@@ -8,6 +8,7 @@ func _ready() -> void:
 	_run()
 
 
+
 func _wait(frames: int) -> void:
 	for i in frames:
 		await get_tree().process_frame
@@ -124,7 +125,12 @@ func _run() -> void:
 	await _click(_screen(th.pos2() + Vector2(0, 8)), MOUSE_BUTTON_RIGHT)
 	print("UITEST rally ", th.rally)
 	# click select a single unit, control groups, idle peasant, double click
-	var u: Unit = game.units_of(game.human)[0]
+	var ws: Array = game.units_of(game.human).filter(func(x): return x.cls == "worker")
+	ws.sort_custom(func(p1, p2): return p1.pos2().distance_to(th.pos2()) < p2.pos2().distance_to(th.pos2()))
+	var u: Unit = ws[0]
+	u.order_stop()
+	game.cam.center_on(u.pos2())
+	await _wait(3)
 	await _click(_screen(u.pos2()))
 	print("UITEST click selected ", ctl.sel.map(func(x): return x.kind))
 	await _key(KEY_1, true)

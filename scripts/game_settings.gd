@@ -44,10 +44,31 @@ var player_color := 1
 var speed := 0
 var champions := true
 var champion_class := 0
+var touch_mode := 0  # 0 auto, 1 touch, 2 mouse & keyboard
+var quality := 0  # 0 auto, 1 high, 2 low
+var touch_active := false
+var low_quality := false
 var autotest := false
+var ui_test := false
 var autotest_time := 1500.0
 var shots: Array = []
 var test_scale := 1.0
+
+
+const TOUCH_NAMES := ["Auto-detect", "Touch screen", "Mouse & keyboard"]
+const QUALITY_NAMES := ["Auto-detect", "High", "Low (faster)"]
+
+
+static func is_mobile_device() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
+
+
+## Applies the control scheme and quality choice, including a larger UI scale for touch screens.
+func apply_device_settings(win: Window) -> void:
+	touch_active = touch_mode == 1 or (touch_mode == 0 and is_mobile_device())
+	low_quality = quality == 2 or (quality == 0 and is_mobile_device())
+	# smaller logical canvas = bigger buttons and text on phones
+	win.content_scale_size = Vector2i(1240, 700) if touch_active else Vector2i(1600, 900)
 
 
 func to_dict() -> Dictionary:

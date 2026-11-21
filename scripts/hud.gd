@@ -34,6 +34,16 @@ var help_panel: Panel
 var over_panel: Panel
 var refresh_t := 0.0
 var champ_btn: Button
+var doctrine_panel: Panel
+var doctrine_title: Label
+var doctrine_buttons: Array = []
+var doctrine_dismissed := -1
+var touch_bar: VBoxContainer
+var context_bar: HBoxContainer
+var multi_btn: Button
+var context_buttons := {}
+var press_t := {}
+var tip_hide_t := 0.0
 
 
 func _ready() -> void:
@@ -63,7 +73,19 @@ func _ready() -> void:
 	root.add_child(center_label)
 	_build_pause()
 	_build_help()
+	_build_doctrine()
+	if GameSettings.touch_active:
+		_build_touch()
 	selection_changed()
+	_ignore_containers(root)
+
+
+## Layout containers must never swallow clicks/taps meant for the 3D world.
+func _ignore_containers(n: Node) -> void:
+	for c in n.get_children():
+		if c is Container and not (c is ScrollContainer):
+			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_ignore_containers(c)
 
 
 func _label(text: String, fs: int = 14, col: Color = Color(0.96, 0.9, 0.78)) -> Label:
@@ -107,7 +129,7 @@ func _build_top() -> void:
 	champ_btn = Button.new()
 	champ_btn.focus_mode = Control.FOCUS_NONE
 	champ_btn.tooltip_text = "Select your champion (` or F2). Double-click to jump to it."
-	champ_btn.pressed.connect(func(): game.ctl.select_champion())
+	champ_btn.pressed.connect(_on_champ_btn)
 	champ_btn.add_theme_color_override("font_color", Color(1, 0.85, 0.45))
 	hb.add_child(champ_btn)
 	shrine_label = _label("", 15, Color(0.6, 0.95, 1.0))
@@ -122,7 +144,7 @@ func _build_top() -> void:
 	time_label.custom_minimum_size.x = 64
 	hb.add_child(time_label)
 	var mb := Button.new()
-	mb.text = "Menu (Esc)"
+	mb.text = "Menu" if GameSettings.touch_active else "Menu (Esc)"
 	mb.focus_mode = Control.FOCUS_NONE
 	mb.pressed.connect(toggle_pause)
 	hb.add_child(mb)
@@ -223,6 +245,7 @@ func _build_bottom() -> void:
 		b.clip_text = true
 		b.pressed.connect(_on_cmd_pressed.bind(i))
 		b.mouse_entered.connect(_on_cmd_hover.bind(i))
+		b.button_down.connect(_on_cmd_down.bind(i))
 		b.mouse_exited.connect(_on_cmd_unhover.bind(i))
 		cg.add_child(b)
 		cmd_buttons.append(b)
@@ -461,7 +484,12 @@ func _process(delta: float) -> void:
 	else:
 		var cn: String = Defs.CHAMPIONS[p.champ_class]["name"]
 		if p.champ != null and is_instance_valid(p.champ) and p.champ.alive:
-			champ_btn.text = "%s  Lv %d%s" % [cn, p.champ_level, ("  (+%d)" % p.champ_points) if p.champ_points > 0 else ""]
+			var extra := ""
+			if p.champ_points > 0:
+				extra += "  +%d skill" % p.champ_points
+			if p.passive_pending() > 0:
+				extra += "  +doctrine!"
+			champ_btn.text = "%s  Lv %d%s" % [cn, p.champ_level, extra]
 		elif p.champ_respawn >= 0.0:
 			champ_btn.text = "%s returns in %ds" % [cn, maxi(0, ceili(p.champ_respawn - game.elapsed))]
 		else:
@@ -482,6 +510,9 @@ func _process(delta: float) -> void:
 		ct = "Peace treaty: " + _fmt_time(game.peace_until - game.elapsed)
 		center_label.add_theme_color_override("font_color", Color(0.7, 0.9, 1))
 	center_label.text = ct
+	_update_doctrine(p)
+	if GameSettings.touch_active:
+		_update_touch(delta)
 	refresh_t -= delta
 	if refresh_t <= 0.0:
 		refresh_t = 0.2
@@ -502,7 +533,7 @@ func _refresh_selection() -> void:
 		info_owner.text = ""
 		info_hp.visible = false
 		info_hp_label.text = ""
-		info_stats.text = "Select units or buildings. Press F1 for controls."
+		info_stats.text = "Tap units or buildings. Long-press and drag to box-select; pinch to zoom." if GameSettings.touch_active else "Select units or buildings. Press F1 for controls."
 		return
 	if sel.size() > 1:
 		var groups := {}
@@ -523,7 +554,7 @@ func _refresh_selection() -> void:
 		info_hp.max_value = mhp
 		info_hp.value = hp
 		info_hp_label.text = " %d / %d" % [hp, mhp]
-		info_stats.text = "Click a group to select only that type."
+		info_stats.text = ("Tap" if GameSettings.touch_active else "Click") + " a group to select only that type."
 		multi_kinds = order
 		for i in mini(order.size(), multi_buttons.size()):
 			multi_buttons[i].visible = true
@@ -576,6 +607,8 @@ func _unit_text(u: Unit) -> String:
 		for i in 4:
 			ab.append("%s %d" % [c.abilities()[i]["name"], c.rank(i)])
 		lines.append("Abilities: " + ", ".join(ab))
+		if not p.passives.is_empty():
+			lines.append("Doctrines: " + ", ".join(p.passives.map(func(x): return Defs.PASSIVES[x]["name"])))
 	if d.has("heal"):
 		lines.append("Heals %d  •  Range %.0f" % [d["heal"], u.range_val()])
 	elif d["atk"] > 0:
@@ -698,7 +731,7 @@ func _refresh_commands() -> void:
 			var lab: String = c["label"]
 			if lab.length() > 9 and not "\n" in lab:
 				lab = lab.replace(" ", "\n")
-			btn.text = "%s\n[%s]" % [lab, HOTKEY_NAMES[i]]
+			btn.text = lab if GameSettings.touch_active else "%s\n[%s]" % [lab, HOTKEY_NAMES[i]]
 			btn.disabled = false
 			btn.modulate = Color.WHITE if c["ok"] else Color(1, 0.6, 0.55, 0.75)
 
@@ -734,9 +767,185 @@ func ctl_cast(i: int) -> void:
 	game.ctl.begin_cast(i)
 
 
+func _build_doctrine() -> void:
+	doctrine_panel = Panel.new()
+	doctrine_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	doctrine_panel.offset_left = -430
+	doctrine_panel.offset_right = 430
+	doctrine_panel.offset_top = 80
+	doctrine_panel.offset_bottom = 300
+	doctrine_panel.visible = false
+	doctrine_panel.clip_contents = true
+	root.add_child(doctrine_panel)
+	var vb := VBoxContainer.new()
+	vb.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	vb.offset_left = 16
+	vb.offset_right = -16
+	vb.offset_top = 10
+	vb.offset_bottom = -10
+	vb.add_theme_constant_override("separation", 8)
+	doctrine_panel.add_child(vb)
+	doctrine_title = _label("Choose a Doctrine", 20, Color(1, 0.85, 0.45))
+	doctrine_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vb.add_child(doctrine_title)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	hb.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vb.add_child(hb)
+	for i in 3:
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		b.custom_minimum_size = Vector2(250, 120)
+		b.add_theme_font_size_override("font_size", 14)
+		b.pressed.connect(_on_doctrine.bind(i))
+		hb.add_child(b)
+		doctrine_buttons.append(b)
+	var later := Button.new()
+	later.text = "Decide later (tap your champion button to reopen)"
+	later.focus_mode = Control.FOCUS_NONE
+	later.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	later.pressed.connect(_on_doctrine_later)
+	vb.add_child(later)
+
+
+func _update_doctrine(p: PlayerData) -> void:
+	var pend := p.passive_pending()
+	if pend <= 0 or game.over:
+		doctrine_panel.visible = false
+		return
+	var tier := p.passives.size()
+	if doctrine_dismissed == tier:
+		return
+	if not doctrine_panel.visible:
+		var opts: Array = p.next_passive_options()
+		doctrine_title.text = "Champion level %d - choose a Doctrine for your army" % Defs.PASSIVE_TIERS[tier]["level"]
+		for i in 3:
+			var d: Dictionary = Defs.PASSIVES[opts[i]]
+			doctrine_buttons[i].text = "%s\n\n%s" % [d["name"], d["desc"]]
+		doctrine_panel.visible = true
+
+
+func _on_doctrine(i: int) -> void:
+	var p: PlayerData = game.players[game.human]
+	var opts: Array = p.next_passive_options()
+	if i < opts.size():
+		game.choose_passive(game.human, opts[i])
+	doctrine_panel.visible = false
+
+
+func _on_doctrine_later() -> void:
+	doctrine_dismissed = game.players[game.human].passives.size()
+	doctrine_panel.visible = false
+
+
+func _on_champ_btn() -> void:
+	var p: PlayerData = game.players[game.human]
+	if p.passive_pending() > 0:
+		doctrine_dismissed = -1
+	game.ctl.select_champion()
+
+
+# ---------------------------------------------------------------- touch screen
+func _build_touch() -> void:
+	touch_bar = VBoxContainer.new()
+	touch_bar.anchor_left = 1.0
+	touch_bar.anchor_right = 1.0
+	touch_bar.offset_left = -118
+	touch_bar.offset_right = -8
+	touch_bar.offset_top = 48
+	touch_bar.add_theme_constant_override("separation", 6)
+	root.add_child(touch_bar)
+	for pair in [["Army", func(): game.ctl.select_army()], ["Idle", func(): game.ctl.select_idle_worker()],
+			["Hero", _on_champ_btn], ["Town", func(): game.ctl.select_town_hall()],
+			["Multi: Off", _toggle_multi], ["Clear", func(): game.ctl.set_selection([])]]:
+		var b := _touch_button(pair[0], pair[1])
+		touch_bar.add_child(b)
+		if pair[0].begins_with("Multi"):
+			multi_btn = b
+	context_bar = HBoxContainer.new()
+	context_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	context_bar.offset_left = -200
+	context_bar.offset_right = 200
+	context_bar.offset_top = -284
+	context_bar.offset_bottom = -226
+	context_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	context_bar.add_theme_constant_override("separation", 10)
+	root.add_child(context_bar)
+	for pair in [["Place", func(): game.ctl.touch_place_confirm()], ["Rotate", func(): game.ctl.touch_rotate()],
+			["Cancel", _touch_cancel]]:
+		var b := _touch_button(pair[0], pair[1])
+		b.custom_minimum_size = Vector2(120, 56)
+		context_bar.add_child(b)
+		context_buttons[pair[0]] = b
+
+
+func _touch_button(text: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.custom_minimum_size = Vector2(110, 50)
+	b.focus_mode = Control.FOCUS_NONE
+	b.add_theme_font_size_override("font_size", 17)
+	b.pressed.connect(cb)
+	return b
+
+
+func _toggle_multi() -> void:
+	game.ctl.touch_multi = not game.ctl.touch_multi
+	multi_btn.text = "Multi: On" if game.ctl.touch_multi else "Multi: Off"
+
+
+func _touch_cancel() -> void:
+	var ctl := game.ctl
+	ctl.cancel_place()
+	ctl.cancel_cast()
+	ctl.amove_pending = false
+
+
+func _update_touch(delta: float) -> void:
+	var ctl := game.ctl
+	var placing := ctl.placing != ""
+	var pending := ctl.cast_pending >= 0 or ctl.amove_pending
+	context_bar.visible = placing or pending
+	context_buttons["Place"].visible = placing
+	context_buttons["Rotate"].visible = placing and ctl.placing != "wall"
+	if placing:
+		context_buttons["Place"].disabled = not ctl.ghost_ok and ctl.placing != "wall"
+	if tip_hide_t > 0.0:
+		tip_hide_t -= delta
+		if tip_hide_t <= 0.0:
+			tip_panel.visible = false
+			hover_idx = -1
+
+
+## True if a screen position is covered by an interactive HUD element.
+func is_over_ui(p: Vector2) -> bool:
+	for c in root.get_children():
+		if c == overlay or not (c is Control) or not c.visible or c.mouse_filter == Control.MOUSE_FILTER_IGNORE:
+			if c is BoxContainer and c.visible:
+				for b in c.get_children():
+					if b is Button and b.visible and b.get_global_rect().has_point(p):
+						return true
+			continue
+		if c.get_global_rect().has_point(p):
+			return true
+	return false
+
+
+func back_pressed() -> void:
+	var ctl := game.ctl
+	if ctl.placing != "" or ctl.cast_pending >= 0 or ctl.amove_pending:
+		_touch_cancel()
+	elif help_panel.visible:
+		help_panel.visible = false
+	else:
+		toggle_pause()
+
+
 func _begin_amove() -> void:
 	game.ctl.amove_pending = true
-	message("Attack-move: left-click a destination.", Color(0.9, 0.9, 0.6))
+	message("Attack-move: %s a destination." % ("tap" if GameSettings.touch_active else "left-click"), Color(0.9, 0.9, 0.6))
 
 
 func _train(b: Building, id: String) -> void:
@@ -759,8 +968,18 @@ func _stop(hold: bool) -> void:
 			u.order_stop()
 
 
+func _on_cmd_down(i: int) -> void:
+	press_t[i] = Time.get_ticks_msec() / 1000.0
+	if GameSettings.touch_active:
+		_on_cmd_hover(i)
+		tip_hide_t = 3.0
+
+
 func _on_cmd_pressed(i: int) -> void:
 	if i >= cmds.size() or cmds[i] == null:
+		return
+	# touch: press-and-hold just shows the description
+	if GameSettings.touch_active and Time.get_ticks_msec() / 1000.0 - press_t.get(i, 1e9) > 0.5:
 		return
 	var c: Dictionary = cmds[i]
 	if not c["ok"]:

@@ -23,6 +23,9 @@ var hover_ground := Vector3.ZERO
 var cast_pending := -1
 var cast_ring: MeshInstance3D
 var last_champ_t := 0.0
+var touch_multi := false
+var ghost_world = null
+var wall_end = null
 
 
 func _cam() -> RTSCamera:
@@ -214,8 +217,12 @@ func begin_cast(i: int) -> void:
 	cast_ring.scale = Vector3(a["radius"], 1, a["radius"])
 	cast_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	game.add_child(cast_ring)
-	_update_cast_ring(get_viewport().get_mouse_position())
-	game.hud.message("%s: click a target (right-click to cancel)." % a["name"], Color(0.9, 0.9, 0.6))
+	if GameSettings.touch_active:
+		cast_ring.visible = false
+		game.hud.message("%s: tap a target." % a["name"], Color(0.9, 0.9, 0.6))
+	else:
+		_update_cast_ring(get_viewport().get_mouse_position())
+		game.hud.message("%s: click a target (right-click to cancel)." % a["name"], Color(0.9, 0.9, 0.6))
 
 
 func cancel_cast() -> void:
@@ -251,12 +258,18 @@ func begin_place(k: String) -> void:
 	ghost.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	game.add_child(ghost)
 	ghost.rotation.y = ghost_rot
-	_update_ghost(get_viewport().get_mouse_position())
+	if GameSettings.touch_active:
+		_update_ghost(get_viewport().get_visible_rect().size * Vector2(0.5, 0.4))
+		game.hud.message("Tap the map to position the %s, then press Place." % d["name"], Color(0.9, 0.9, 0.6))
+	else:
+		_update_ghost(get_viewport().get_mouse_position())
 
 
 func cancel_place() -> void:
 	placing = ""
 	wall_start = null
+	wall_end = null
+	ghost_world = null
 	if ghost:
 		ghost.queue_free()
 		ghost = null
@@ -278,6 +291,7 @@ func _update_ghost(screen: Vector2) -> void:
 	var s: float = Defs.BUILDINGS[placing]["size"]
 	var p := Game.snap_pos(s, Vector2(gp.x, gp.z))
 	ghost_ok = game.can_place(placing, p, game.human)
+	ghost_world = p
 	ghost.material_override = Models.ghost_ok if ghost_ok else Models.ghost_bad
 	ghost.position = Vector3(p.x, game.height_at(p.x, p.y), p.y)
 	if placing == "wall" and wall_start != null:
@@ -315,7 +329,10 @@ func _try_place(screen: Vector2, shift: bool) -> void:
 	var gp = _cam().ground_at(screen)
 	if gp == null:
 		return
-	var p := Vector2(gp.x, gp.z)
+	_place_at(Vector2(gp.x, gp.z), shift)
+
+
+func _place_at(p: Vector2, shift: bool) -> void:
 	var b := game.place_building(game.human, placing, p, own_workers(), ghost_rot)
 	if b == null:
 		var pl: PlayerData = game.players[game.human]
@@ -327,6 +344,78 @@ func _try_place(screen: Vector2, shift: bool) -> void:
 	game.spawn_fx("marker", b.position + Vector3.UP * 0.2, b.size * 0.8, Color.WHITE)
 	if not shift:
 		cancel_place()
+
+
+# ---- touch helpers
+func touch_place_tap(screen: Vector2) -> void:
+	var gp = _cam().ground_at(screen)
+	if gp == null:
+		return
+	if placing == "wall":
+		var p := Game.snap_pos(1.0, Vector2(gp.x, gp.z))
+		if wall_start == null or wall_end != null:
+			wall_start = p
+			wall_end = null
+			_clear_wall_ghosts()
+			_update_ghost(screen)
+			game.hud.message("Tap where the wall should end, then press Place.", Color(0.9, 0.9, 0.6))
+		else:
+			wall_end = p
+			_preview_wall(wall_start, wall_end)
+		return
+	_update_ghost(screen)
+
+
+func touch_place_confirm() -> void:
+	if placing == "":
+		return
+	if placing == "wall":
+		if wall_start != null:
+			_place_wall_line(wall_start, wall_end if wall_end != null else wall_start)
+		cancel_place()
+		return
+	if ghost_world != null:
+		_place_at(ghost_world, false)
+
+
+func touch_rotate() -> void:
+	ghost_rot += PI / 2
+	if ghost:
+		ghost.rotation.y = ghost_rot
+
+
+func touch_cast(screen: Vector2) -> void:
+	var gp = _cam().ground_at(screen)
+	var c := selected_champion()
+	if gp != null and c != null:
+		c.request_cast(cast_pending, Vector2(gp.x, gp.z))
+	cancel_cast()
+
+
+func select_army() -> void:
+	var army: Array = game.units.filter(func(u): return u.alive and u.pid == game.human and u.cls != "worker")
+	if army.is_empty():
+		game.hud.message("You have no army.", Color(0.8, 0.8, 0.8))
+		return
+	set_selection(army)
+
+
+func select_idle_worker() -> void:
+	var idle: Array = game.units.filter(func(u): return u.alive and u.pid == game.human and u.cls == "worker" and u.state == Unit.IDLE)
+	if idle.is_empty():
+		game.hud.message("No idle peasants.", Color(0.8, 0.8, 0.8))
+		return
+	idle_cycle = (idle_cycle + 1) % idle.size()
+	set_selection([idle[idle_cycle]])
+	_cam().center_on(idle[idle_cycle].pos2())
+
+
+func select_town_hall() -> void:
+	for b in game.buildings:
+		if b.pid == game.human and b.kind == "town_hall" and b.alive:
+			set_selection([b])
+			_cam().center_on(b.pos2())
+			return
 
 
 func _place_wall_line(a: Vector2, b: Vector2) -> void:
@@ -349,6 +438,9 @@ func _place_wall_line(a: Vector2, b: Vector2) -> void:
 # ---------------------------------------------------------------- input
 func _unhandled_input(event: InputEvent) -> void:
 	if game.over:
+		return
+	# on touch devices, real touch events are handled by TouchInput; ignore their mouse emulation
+	if GameSettings.touch_active and event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION:
 		return
 	if event is InputEventMouseMotion:
 		drag_now = event.position

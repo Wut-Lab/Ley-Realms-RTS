@@ -28,12 +28,33 @@ To make a standalone executable: **Project → Export…**, add a Windows/macOS/
 | **Monster lairs** | Wolves and trolls guard gold and pay bounties |
 | **Fog of war** | Unexplored areas, explored areas and current vision, with a live minimap |
 | **Champions** | Pick a hero class (Warlord, Archmage, High Priestess). It levels 1–10 from battle XP, gains stats each level, spends skill points on 4 abilities (ultimate at level 6) and respawns at your Town Hall. AI players get champions and cast their abilities too |
+| **Doctrines** | At champion levels 2, 4, 6, 8 and 10 you pick one of three army-wide passives (e.g. Drill Sergeant, Shield Wall, Command Aura, Siege Masters, Spoils of War). Some are auras around your champion |
+| **Phones & tablets** | Full touch controls, a larger touch-friendly UI, Android APK and web builds |
 | **AI** | **Easy** and **Hard** opponents that build economies, age up, research, claim shrines, defend and attack in waves |
 
 ### Skirmish setup options
 Map size (Small to Huge), biome (Verdant Vale, Highland Crags, Frostmarch, Ashen Wastes, Elderwood), terrain relief, water, forest density, resource abundance, monster lairs on/off, Ley Shrines on/off, map seed (with live preview), champions on/off and your champion class, 1–5 AI opponents, AI difficulty, free-for-all or allied AIs, your colour, victory condition, starting age, starting resources, population limit, peace treaty, game speed, fog of war, and a pre-explored map.
 
-## Controls
+## Playing on a phone
+
+* **Android:** install `LeyRealms.apk` from the GitHub release (allow "install unknown apps" for your browser when asked).
+* **Any phone, including iPhone:** open the web version link from the repository's GitHub Pages site in the phone browser, landscape.
+
+Touch controls switch on automatically on phones and tablets. You can force them on or off in Skirmish Setup under **Device → Controls**; **Graphics** has a Low setting for older phones.
+
+| Touch | Action |
+|---|---|
+| Tap | Select a unit/building. With units selected, tap the ground, an enemy, a resource or your own construction to move/attack/gather/build. With a building selected, tap the ground to set its rally point |
+| Double-tap a unit | Select all of that type on screen |
+| Long-press, then drag | Box-select |
+| Drag with one finger | Pan the camera |
+| Pinch / two-finger twist | Zoom / rotate |
+| Right-side buttons | Army, Idle peasant, Hero, Town Hall, Multi-select toggle, Clear selection |
+| Building | Pick it from the command card, tap the map to position it, then **Place** / **Rotate** / **Cancel**. Walls: tap the start, tap the end, then **Place** |
+| Command card | Tap to use; press and hold to read the description |
+| Android back button | Cancel / pause menu |
+
+## Controls (mouse & keyboard)
 
 | Input | Action |
 |---|---|
@@ -68,12 +89,14 @@ scripts/
   models.gd, model_builder.gd  procedural low-poly meshes and shaders
   game.gd                   match: world, pathfinding (AStarGrid2D), fog, combat, victory
   unit.gd, building.gd, entity.gd, resource_node.gd, shrine.gd, projectile.gd
-  champion.gd, area_effect.gd  hero levelling, abilities, lingering spell areas
+  champion.gd, area_effect.gd  hero levelling, abilities, doctrines, lingering spell areas
+  touch_input.gd            touch-screen controls
   ai_controller.gd          Easy/Hard computer opponents
   player_controller.gd      mouse/keyboard input, selection, placement
   rts_camera.gd             RTS camera
   hud.gd, minimap.gd, overlay.gd, ui_theme.gd, res_icon.gd, main_menu.gd
-  ui_test.gd                scripted UI test (developer tool)
+  ui_test.gd, touch_test.gd scripted desktop / touch UI tests (developer tools)
+export_presets.cfg          Android (APK) and Web export presets
 ```
 
 ## Developer testing
@@ -85,3 +108,11 @@ godot --headless --fixed-fps 20 -- --autotest --time=1200 --ai=3 --hard=1 --size
 ```
 
 It prints economy and performance stats each game-minute and quits at the end. Other flags: `--biome=N`, `--age=N`, `--res=N`, `--fog`, and `--uitest`, which runs a scripted pass over the human controls.
+
+### Building the phone versions yourself
+
+1. In Godot, install the export templates (**Editor → Manage Export Templates**).
+2. **Android:** in Editor Settings, set the Android SDK path and a keystore, then **Project → Export → Android → Export Project**. The preset builds an arm64 APK without needing Gradle.
+3. **Web:** **Project → Export → Web**. It's single-threaded, so it works on any static host (e.g. GitHub Pages) without special headers.
+
+Touch tests: `godot --headless -- --autotest --touch --touchtest`.

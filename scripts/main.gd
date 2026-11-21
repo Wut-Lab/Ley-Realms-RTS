@@ -6,8 +6,11 @@ var menu: MainMenu = null
 
 
 func _ready() -> void:
+	get_tree().set_auto_accept_quit(true)
+	GameSettings.apply_device_settings(get_window())
 	if "--autotest" in OS.get_cmdline_user_args():
 		GameSettings.autotest = true
+		GameSettings.ui_test = "--uitest" in OS.get_cmdline_user_args() or "--touchtest" in OS.get_cmdline_user_args()
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("--time="):
 				GameSettings.autotest_time = float(a.substr(7))
@@ -36,6 +39,9 @@ func _ready() -> void:
 				GameSettings.start_age = int(a.substr(6))
 			if a.begins_with("--res="):
 				GameSettings.start_res = int(a.substr(6))
+			if a == "--touch":
+				GameSettings.touch_mode = 1
+				GameSettings.apply_device_settings(get_window())
 			if a.begins_with("--biome="):
 				GameSettings.biome = int(a.substr(8))
 		start_game()
@@ -48,6 +54,15 @@ func _swap(n: Node) -> void:
 		current.queue_free()
 	current = n
 	add_child(n)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# Android back button: pause in game, step back in menus
+		if current is Game and current.hud:
+			current.hud.back_pressed()
+		elif menu and is_instance_valid(menu):
+			menu.back_pressed()
 
 
 func show_menu() -> void:
