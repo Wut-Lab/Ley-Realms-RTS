@@ -9,11 +9,26 @@ var cols := PackedColorArray()
 var idx := PackedInt32Array()
 var uvs := PackedVector2Array()
 var textured := false  # buildings: tag each part with a surface material for the shader
+var unit_tex := false  # units: cloth, metal, leather, stone
 
 
 ## 0 plain, 1 stone bricks, 2 wood planks, 3 plaster, 4 roof shingles
 func _mat_id(prim: PrimitiveMesh, col: Color) -> float:
-	if not textured or col.a < 0.99:
+	if col.a < 0.99:
+		return 0.0
+	if unit_tex:
+		if col.h > 0.1 and col.h < 0.16 and col.s > 0.55 and col.v > 0.75:
+			return 5.0  # gold trim
+		if col.s < 0.16 and col.v > 0.62:
+			return 5.0  # steel
+		if col.s < 0.16 and col.v > 0.25:
+			return 1.0  # stone (golems)
+		if col.h > 0.02 and col.h < 0.13 and col.s > 0.3 and col.v < 0.65:
+			return 6.0  # leather / wood
+		if col.s > 0.35 and not (col.h > 0.03 and col.h < 0.1 and col.v > 0.85):
+			return 7.0  # cloth (skin excluded)
+		return 0.0
+	if not textured:
 		return 0.0
 	var roofish: bool = prim is PrismMesh or (prim is CylinderMesh and prim.top_radius == 0.0)
 	if roofish and col.s > 0.25:

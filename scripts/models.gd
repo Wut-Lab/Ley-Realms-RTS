@@ -52,6 +52,19 @@ float surface(float m, vec3 p, vec3 n) {
 		float grain = 0.9 + 0.1 * sin(q.y * 28.0 + hash(vec2(cell, 1.0)) * 6.0 + sin(q.y * 6.0 + cell) * 2.0);
 		return mix(0.66, (0.84 + 0.24 * hash(vec2(cell, 3.0))) * grain, edge);
 	}
+	if (m > 4.5 && m < 5.5) {
+		// brushed metal
+		return 0.9 + 0.14 * vnoise(vec2(q.x * 40.0, q.y * 4.0)) + 0.06 * vnoise(q * 18.0);
+	}
+	if (m > 5.5 && m < 6.5) {
+		// leather / hide
+		return 0.82 + 0.16 * vnoise(q * 22.0) + 0.06 * vnoise(q * 60.0);
+	}
+	if (m > 6.5) {
+		// woven cloth with soft folds
+		float weave = 0.5 + 0.5 * sin(q.x * 140.0) * sin(q.y * 140.0);
+		return 0.86 + 0.08 * weave + 0.14 * vnoise(q * 4.5);
+	}
 	if (m < 3.5) {
 		// rough plaster
 		return 0.9 + 0.1 * vnoise(q * 3.0) + 0.05 * vnoise(q * 14.0);
@@ -70,9 +83,11 @@ void fragment() {
 	vec3 c = pow(COLOR.rgb, vec3(2.2));
 	float glow = 1.0 - COLOR.a;
 	c *= surface(mid, lpos, lnorm);
+	float metal = (mid > 4.5 && mid < 5.5) ? 1.0 : 0.0;
 	ALBEDO = c * f * f;
+	METALLIC = 0.45 * metal;
 	EMISSION = c * glow * 3.0 * f;
-	ROUGHNESS = 0.82;
+	ROUGHNESS = mix(0.82, 0.38, metal);
 	SPECULAR = 0.5 * f;
 }
 """
@@ -191,6 +206,9 @@ void fragment() {
 }
 """
 
+const UNIT_MODELS := ["peasant", "swordsman", "spearman", "archer", "warden", "knight", "mage", "cleric", "catapult",
+	"dragon", "wolf", "troll", "ironbreaker", "ranger", "ogre", "golem", "griffin", "champ_warlord", "champ_archmage", "champ_priestess"]
+
 static var cache := {}
 
 
@@ -252,6 +270,7 @@ static func mesh(key: String, tc: Color = Color.WHITE, variant: int = 0) -> Mesh
 		return cache[ck]
 	var mb := ModelBuilder.new()
 	mb.textured = Defs.BUILDINGS.has(key) or key in ["gate_door", "merc_camp", "shrine"]
+	mb.unit_tex = key in UNIT_MODELS
 	_build(mb, key, tc, variant)
 	var m := mb.commit(entity_mat)
 	cache[ck] = m
