@@ -288,9 +288,10 @@ def make_music():
         pad = np.zeros(int(SR * d))
         for n in chord:
             f = note(n)
-            pad += osc(f, d, "tri") * 0.25 + osc(f * 1.003, d) * 0.2 + osc(f * 0.5, d) * 0.12
-        place(mix, lowpass(pad * env, 1200) * 0.5, b * bar)
-    drone = osc(note("D2"), length) * 0.18 + osc(note("A2"), length) * 0.1
+            pad += osc(f, d, "tri") * 0.25 + osc(f * 2.003, d, "tri") * 0.12 + osc(f * 1.003, d) * 0.15
+        place(mix, lowpass(pad * env, 2600) * 0.38, b * bar)
+    # drone an octave higher than before so small phone speakers can reproduce it
+    drone = osc(note("D3"), length, "tri") * 0.07 + osc(note("A3"), length, "tri") * 0.05
     place(mix, drone * (0.8 + 0.2 * np.sin(2 * np.pi * secs(length) / 12.0)), 0)
 
     # lute arpeggios (bars 4-27)
@@ -299,13 +300,13 @@ def make_music():
         pattern = [0, 1, 2, 1, 0, 2, 1, 2]
         for k, idx in enumerate(pattern):
             f = note(chord[idx]) * 2
-            place(mix, pluck(f, 0.9, 0.994, 0.6) * decay(int(SR * 0.9), 0.35) * 0.28, b * bar + k * beat / 2)
+            place(mix, pluck(f, 0.9, 0.993, 0.9) * decay(int(SR * 0.9), 0.35) * 0.42, b * bar + k * beat / 2)
 
     # flute melody (bars 8-23 and 24-31 variation)
     def flute(f, d):
         t = secs(d)
         vib = 1 + 0.006 * np.sin(2 * np.pi * 5.2 * t) * np.minimum(1, t / 0.3)
-        tone = osc(f * vib, d) + osc(2 * f * vib, d) * 0.18 + osc(3 * f * vib, d) * 0.05
+        tone = osc(f * vib, d) + osc(2 * f * vib, d) * 0.32 + osc(3 * f * vib, d) * 0.14 + osc(4 * f * vib, d) * 0.05
         breath = band(noise(d), 1500, 5000) * 0.05
         env = np.minimum(1, t / 0.06) * np.minimum(1, (d - t) / 0.12)
         return (tone + breath) * env
@@ -319,7 +320,7 @@ def make_music():
             tpos += beat
             continue
         idx = int(np.clip(idx + rng.choice([-2, -1, -1, 0, 1, 1, 2]), 0, len(scale) - 1))
-        place(mix, flute(note(scale[idx]), dur * 0.95) * 0.32, tpos)
+        place(mix, flute(note(scale[idx]) * 2.0, dur * 0.95) * 0.42, tpos)
         tpos += dur
 
     # frame drum
@@ -327,7 +328,7 @@ def make_music():
         d = 0.35
         if low:
             return osc(sweep(95, 55, d), d) * decay(int(SR * d), 0.12) + lowpass(noise(d), 400) * decay(int(SR * d), 0.03) * 0.5
-        return band(noise(0.08), 1500, 6000) * decay(int(SR * 0.08), 0.015) * 0.3
+        return band(noise(0.08), 2500, 8000) * decay(int(SR * 0.08), 0.015) * 0.5
 
     for b in range(8, 30):
         for k in range(8):
@@ -350,8 +351,11 @@ def make_music():
     loop = out[:L].copy()
     rest = out[L:]
     loop[:len(rest)] += rest[:L]
+    # trim inaudible sub-bass, then gently compress so it holds up on phone speakers
+    loop = highpass(loop, 110)
     loop /= np.max(np.abs(loop))
-    loop *= 0.85
+    loop = np.tanh(loop * 2.2) / np.tanh(2.2)
+    loop *= 0.84
     wav_path = os.path.join(OUT, "_music.wav")
     with wave.open(wav_path, "wb") as w:
         w.setnchannels(1)

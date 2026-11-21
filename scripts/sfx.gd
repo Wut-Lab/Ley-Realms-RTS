@@ -16,7 +16,7 @@ var pool: Array = []
 var next := 0
 var music: AudioStreamPlayer
 var recent := {}
-var music_vol := 0.6
+var music_vol := 0.85
 var sfx_vol := 0.8
 var muted := false
 var game: Game = null
@@ -49,6 +49,14 @@ func _ready() -> void:
 	_load_settings()
 	_apply_volumes()
 	get_tree().node_added.connect(_on_node_added)
+
+
+## Browsers may block audio until the first tap/click; make sure the music is running after it.
+func _input(event: InputEvent) -> void:
+	if (event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventKey) and event.is_pressed():
+		if music.stream and not music.playing:
+			music.play()
+		set_process_input(false)
 
 
 func _on_node_added(n: Node) -> void:
