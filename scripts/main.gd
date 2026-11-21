@@ -1,0 +1,68 @@
+extends Node
+## Root scene: swaps between the main menu and a running game.
+
+var current: Node = null
+var menu: MainMenu = null
+
+
+func _ready() -> void:
+	if "--autotest" in OS.get_cmdline_user_args():
+		GameSettings.autotest = true
+		for a in OS.get_cmdline_user_args():
+			if a.begins_with("--time="):
+				GameSettings.autotest_time = float(a.substr(7))
+			if a.begins_with("--hard="):
+				GameSettings.difficulty = int(a.substr(7))
+			if a.begins_with("--size="):
+				GameSettings.map_size = int(a.substr(7))
+			if a.begins_with("--ai="):
+				GameSettings.num_ai = int(a.substr(5))
+			if a.begins_with("--shots="):
+				for v in a.substr(8).split(","):
+					GameSettings.shots.append(float(v))
+			if a.begins_with("--scale="):
+				GameSettings.test_scale = float(a.substr(8))
+			if a.begins_with("--menushot"):
+				GameSettings.autotest = false
+				show_menu()
+				await get_tree().create_timer(1.0).timeout
+				menu._show_setup()
+				await get_tree().create_timer(1.0).timeout
+				get_viewport().get_texture().get_image().save_png(OS.get_user_data_dir() + "/menu.png")
+				print("saved menu shot")
+				get_tree().quit()
+				return
+			if a.begins_with("--age="):
+				GameSettings.start_age = int(a.substr(6))
+			if a.begins_with("--res="):
+				GameSettings.start_res = int(a.substr(6))
+			if a.begins_with("--biome="):
+				GameSettings.biome = int(a.substr(8))
+		start_game()
+	else:
+		show_menu()
+
+
+func _swap(n: Node) -> void:
+	if current and is_instance_valid(current):
+		current.queue_free()
+	current = n
+	add_child(n)
+
+
+func show_menu() -> void:
+	get_tree().paused = false
+	Engine.time_scale = 1.0
+	var layer := CanvasLayer.new()
+	var m := MainMenu.new()
+	m.main = self
+	menu = m
+	layer.add_child(m)
+	_swap(layer)
+
+
+func start_game() -> void:
+	get_tree().paused = false
+	var g := Game.new()
+	g.main = self
+	_swap(g)
