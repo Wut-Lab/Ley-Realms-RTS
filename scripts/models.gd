@@ -31,52 +31,126 @@ void fragment() {
 }
 """
 
+const NOISE_LIB := """
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	vec2 u = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+	float v = 0.0;
+	float a = 0.5;
+	for (int i = 0; i < 4; i++) { v += a * vnoise(p); p *= 2.03; a *= 0.5; }
+	return v;
+}
+"""
+
 const TERRAIN_SHADER := """
 shader_type spatial;
 uniform sampler2D fog_tex : filter_linear, repeat_disable;
 uniform float map_size = 128.0;
 uniform float fog_on = 0.0;
+uniform vec3 rock_color = vec3(0.5, 0.47, 0.43);
+uniform float cloud_on = 1.0;
+uniform float hq = 1.0;
 varying vec3 wpos;
-void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
-float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+varying vec3 wnorm;
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wnorm = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+%NOISE%
 void fragment() {
 	float f = 1.0;
 	if (fog_on > 0.5) { f = texture(fog_tex, wpos.xz / map_size).r; }
 	vec3 c = pow(COLOR.rgb, vec3(2.2));
-	float n = hash(floor(wpos.xz * 3.0)) * 0.08 - 0.04;
-	c *= 1.0 + n;
+	// soften the saturation a little
+	float lum = dot(c, vec3(0.299, 0.587, 0.114));
+	c = mix(vec3(lum), c, 0.78) * 0.93;
+	// colour variation at three scales: broad meadows, patches, fine speckle
+	float big = hq > 0.5 ? fbm(wpos.xz * 0.045) : vnoise(wpos.xz * 0.045);
+	float mid = vnoise(wpos.xz * 0.35);
+	float fine = vnoise(wpos.xz * 3.1);
+	c *= 0.72 + 0.5 * big;
+	c = mix(c, c * vec3(1.14, 1.05, 0.76), smoothstep(0.5, 0.8, mid) * 0.5);
+	c = mix(c, c * vec3(0.8, 0.95, 0.86), smoothstep(0.55, 0.85, vnoise(wpos.xz * 0.12 + 7.0)) * 0.5);
+	c *= 0.9 + 0.18 * fine;
+	// layered rock strata on steep slopes
+	float slope = 1.0 - clamp(wnorm.y, 0.0, 1.0);
+	float rock = smoothstep(0.34, 0.55, slope);
+	float strata = 0.78 + 0.28 * sin(wpos.y * 5.0 + vnoise(wpos.xz * 0.6) * 4.0);
+	vec3 rc = pow(rock_color, vec3(2.2)) * strata * (0.88 + 0.24 * fine);
+	c = mix(c, rc, rock * 0.85);
+	// slow drifting cloud shadows
+	if (cloud_on > 0.5) {
+		float cl = smoothstep(0.5, 0.74, fbm(wpos.xz * 0.018 + vec2(TIME * 0.012, TIME * 0.007)));
+		c *= 1.0 - 0.28 * cl;
+	}
 	ALBEDO = c * f * f;
-	ROUGHNESS = 0.95;
-	SPECULAR = 0.5 * f;
+	ROUGHNESS = 0.92 - rock * 0.15;
+	SPECULAR = 0.35 * f;
 }
 """
 
 const WATER_SHADER := """
 shader_type spatial;
-render_mode blend_mix, cull_disabled;
+render_mode blend_mix, cull_disabled, depth_draw_opaque;
 uniform sampler2D fog_tex : filter_linear, repeat_disable;
+uniform sampler2D height_tex : filter_linear, repeat_disable;
 uniform float map_size = 128.0;
 uniform float fog_on = 0.0;
+uniform float water_level = 0.0;
 uniform vec3 water_color = vec3(0.1, 0.3, 0.5);
+uniform vec3 sky_color = vec3(0.7, 0.8, 0.9);
 varying vec3 wpos;
+%NOISE%
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	VERTEX.y += sin(wpos.x * 0.35 + TIME * 1.1) * 0.06 + cos(wpos.z * 0.28 + TIME * 0.9) * 0.06;
+	VERTEX.y += sin(wpos.x * 0.35 + TIME * 1.1) * 0.05 + cos(wpos.z * 0.28 + TIME * 0.9) * 0.05;
 }
 void fragment() {
 	float f = 1.0;
 	if (fog_on > 0.5) { f = texture(fog_tex, wpos.xz / map_size).r; }
-	float ripple = sin(wpos.x * 1.3 + TIME * 1.7) * sin(wpos.z * 1.1 - TIME * 1.3) * 0.5 + 0.5;
-	vec3 c = pow(water_color, vec3(2.2)) * (0.85 + ripple * 0.3);
-	ALBEDO = c * f * f;
-	ALPHA = mix(1.0, 0.82, f);
-	ROUGHNESS = 0.08;
-	METALLIC = 0.1;
-	SPECULAR = 0.8 * f;
+	// depth of water above the terrain at this point
+	float h = texture(height_tex, (wpos.xz + 0.5) / (map_size + 1.0)).r;
+	float d = max(water_level - h, 0.0);
+	float dt = 1.0 - exp(-d * 0.9);
+	vec3 shallow = mix(water_color, vec3(0.32, 0.74, 0.70), 0.5);
+	vec3 deep = water_color * 0.42;
+	vec3 col = mix(shallow, deep, dt);
+	// rippling normals from a few moving waves
+	vec2 p = wpos.xz;
+	float t = TIME;
+	vec2 g = vec2(
+		cos(p.x * 0.9 + t * 1.3) * 0.9 + cos((p.x + p.y) * 1.7 - t * 1.9) * 0.5 + cos(p.x * 3.1 - t * 2.7) * 0.25,
+		cos(p.y * 1.1 + t * 1.1) * 0.9 + cos((p.x - p.y) * 1.5 - t * 1.7) * 0.5 + cos(p.y * 2.9 + t * 2.3) * 0.25) * 0.07;
+	vec3 n = normalize(vec3(-g.x, 1.0, -g.y));
+	NORMAL = normalize((VIEW_MATRIX * vec4(n, 0.0)).xyz);
+	// reflect the sky at grazing angles
+	float fr = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
+	col = mix(col, sky_color, fr * 0.6);
+	// foam along the shore, with lapping bands
+	float fn = vnoise(p * 2.2 + vec2(t * 0.3, -t * 0.2));
+	float shore = 1.0 - smoothstep(0.0, 0.3, d);
+	float band = (sin(d * 16.0 - t * 2.2) * 0.5 + 0.5) * (1.0 - smoothstep(0.0, 0.8, d));
+	float foam = clamp(smoothstep(0.4, 0.85, shore + fn * 0.45 - 0.2) + band * fn * 0.35, 0.0, 1.0) * 0.85;
+	col = mix(col, vec3(0.88, 0.93, 0.94), foam);
+	ALBEDO = pow(col, vec3(2.2)) * f * f;
+	ALPHA = mix(1.0, clamp(mix(0.55, 0.93, dt) + foam * 0.5, 0.0, 1.0), f);
+	ROUGHNESS = mix(0.06, 0.6, foam);
+	METALLIC = 0.0;
+	SPECULAR = 0.9 * f * (1.0 - foam);
 }
 """
 
 static var cache := {}
+
+
+static func shader_code(src: String) -> String:
+	return src.replace("%NOISE%", NOISE_LIB)
+
 static var entity_mat: ShaderMaterial
 static var ring_mats := {}
 static var ghost_ok: StandardMaterial3D

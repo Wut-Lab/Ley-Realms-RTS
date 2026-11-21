@@ -53,6 +53,9 @@ func _ready() -> void:
 			if a == "--touch":
 				GameSettings.touch_mode = 1
 				GameSettings.apply_device_settings(get_window())
+			if a.begins_with("--seed="):
+				GameSettings.random_seed = false
+				GameSettings.map_seed = int(a.substr(7))
 			if a.begins_with("--biome="):
 				GameSettings.biome = int(a.substr(8))
 		start_game()

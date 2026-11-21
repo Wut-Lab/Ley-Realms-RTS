@@ -161,6 +161,15 @@ func _build_environment() -> void:
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 	env.ambient_light_energy = 0.9
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	if RenderingServer.get_rendering_device() != null:
+		# Forward+/Mobile light the scene more strongly from the sky; keep colours rich like the phone renderer
+		env.ambient_light_energy = 0.55
+		env.ambient_light_sky_contribution = 0.85
+		env.tonemap_exposure = 0.92
+		env.tonemap_white = 1.4
+		env.adjustment_enabled = true
+		env.adjustment_saturation = 1.18
+		env.adjustment_contrast = 1.08
 	env.glow_enabled = true
 	env.glow_intensity = 0.6
 	env.glow_bloom = 0.05
@@ -217,12 +226,17 @@ func _build_terrain() -> void:
 	var m := ArrayMesh.new()
 	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 	var sh := Shader.new()
-	sh.code = Models.TERRAIN_SHADER
+	sh.code = Models.shader_code(Models.TERRAIN_SHADER)
 	terrain_mat = ShaderMaterial.new()
 	terrain_mat.shader = sh
 	terrain_mat.set_shader_parameter("fog_tex", fog_tex)
 	terrain_mat.set_shader_parameter("map_size", float(size))
 	terrain_mat.set_shader_parameter("fog_on", 1.0 if fog_on else 0.0)
+	var bdc: Dictionary = MapGenerator.BIOMES[md.biome]
+	var rk: Color = bdc["rock"]
+	terrain_mat.set_shader_parameter("rock_color", Vector3(rk.r, rk.g, rk.b))
+	terrain_mat.set_shader_parameter("cloud_on", 0.0 if GameSettings.low_quality else 1.0)
+	terrain_mat.set_shader_parameter("hq", 0.0 if GameSettings.low_quality else 1.0)
 	m.surface_set_material(0, terrain_mat)
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
@@ -244,7 +258,7 @@ func _build_terrain() -> void:
 		pm.subdivide_width = 64
 		pm.subdivide_depth = 64
 		var wsh := Shader.new()
-		wsh.code = Models.WATER_SHADER
+		wsh.code = Models.shader_code(Models.WATER_SHADER)
 		water_mat = ShaderMaterial.new()
 		water_mat.shader = wsh
 		var wc: Color = MapGenerator.BIOMES[md.biome]["water"]
@@ -252,6 +266,16 @@ func _build_terrain() -> void:
 		water_mat.set_shader_parameter("fog_tex", fog_tex)
 		water_mat.set_shader_parameter("map_size", float(size))
 		water_mat.set_shader_parameter("fog_on", 1.0 if fog_on else 0.0)
+		water_mat.set_shader_parameter("water_level", md.water_level)
+		var hz: Color = MapGenerator.BIOMES[md.biome]["horizon"]
+		water_mat.set_shader_parameter("sky_color", Vector3(hz.r, hz.g, hz.b))
+		# heightmap so the water knows how deep it is everywhere (shallows, foam)
+		var hb := PackedByteArray()
+		hb.resize((size + 1) * (size + 1) * 4)
+		for i in md.heights.size():
+			hb.encode_float(i * 4, md.heights[i])
+		var himg := Image.create_from_data(size + 1, size + 1, false, Image.FORMAT_RF, hb)
+		water_mat.set_shader_parameter("height_tex", ImageTexture.create_from_image(himg))
 		pm.material = water_mat
 		wm.mesh = pm
 		wm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
