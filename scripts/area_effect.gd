@@ -71,6 +71,7 @@ func tick(delta: float) -> bool:
 				for e in game.area_targets(p2, radius, owner_id):
 					game.apply_damage(e, info)
 				game.spawn_fx("burst", position + Vector3.UP * 0.5, radius, Color.WHITE)
+				Sfx.play_at("explosion", position, 2.0)
 				return false
 		"banner":
 			if tick_t <= 0.0:
@@ -89,6 +90,7 @@ func tick(delta: float) -> bool:
 					game.apply_damage(e, info)
 				var off := Vector2.from_angle(randf() * TAU) * randf() * radius
 				game.spawn_fx("bolt", position + Vector3(off.x, 0, off.y), 1.0, Color.WHITE)
+				Sfx.play_at("arrow_hit", position, -4.0)
 	if t >= dur:
 		return false
 	if dur - t < 1.0:

@@ -11,6 +11,8 @@ var seed_edit: LineEdit
 var preview_t := -1.0
 var info_label: Label
 var opts := {}
+var load_panel: SavePanel
+var sound_panel: Panel
 
 
 func _ready() -> void:
@@ -32,6 +34,35 @@ func _ready() -> void:
 	_build_title()
 	_build_setup()
 	_build_how()
+	load_panel = SavePanel.new()
+	load_panel.main = main
+	add_child(load_panel)
+	load_panel.closed.connect(func(): title_box.visible = true)
+	sound_panel = Panel.new()
+	sound_panel.set_anchors_preset(Control.PRESET_CENTER)
+	sound_panel.offset_left = -220
+	sound_panel.offset_right = 220
+	sound_panel.offset_top = -150
+	sound_panel.offset_bottom = 150
+	sound_panel.visible = false
+	add_child(sound_panel)
+	var sv := VBoxContainer.new()
+	sv.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sv.offset_left = 24
+	sv.offset_right = -24
+	sv.offset_top = 18
+	sv.offset_bottom = -18
+	sv.add_theme_constant_override("separation", 12)
+	sound_panel.add_child(sv)
+	sv.add_child(_lbl("Sound", 24, Color(1, 0.82, 0.4)))
+	sv.add_child(Sfx.volume_controls())
+	var sb := Button.new()
+	sb.text = "Back"
+	sb.custom_minimum_size = Vector2(140, 44)
+	sb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	sb.pressed.connect(_hide_sound)
+	sv.add_child(sb)
+	Sfx.play_music()
 	GameSettings.random_seed = false
 	GameSettings.map_seed = randi() % 999999
 
@@ -51,8 +82,8 @@ func _build_title() -> void:
 	title_box.set_anchors_preset(Control.PRESET_CENTER)
 	title_box.offset_left = -260
 	title_box.offset_right = 260
-	title_box.offset_top = -250
-	title_box.offset_bottom = 250
+	title_box.offset_top = -300
+	title_box.offset_bottom = 300
 	title_box.add_theme_constant_override("separation", 14)
 	add_child(title_box)
 	var t := _lbl("LEY REALMS", 72, Color(1.0, 0.82, 0.4))
@@ -64,7 +95,14 @@ func _build_title() -> void:
 	var sp := Control.new()
 	sp.custom_minimum_size.y = 40
 	title_box.add_child(sp)
-	for pair in [["Skirmish", _show_setup], ["How to Play", _show_how], ["Quit", _quit]]:
+	var latest := SaveGame.latest()
+	var entries: Array = []
+	if latest != "":
+		entries.append(["Continue", _continue])
+	entries.append_array([["Skirmish", _show_setup], ["Load Game", _show_load], ["How to Play", _show_how], ["Sound", _show_sound]])
+	if not OS.has_feature("web"):
+		entries.append(["Quit", _quit])
+	for pair in entries:
 		var b := Button.new()
 		b.text = pair[0]
 		b.custom_minimum_size = Vector2(320, 52)
@@ -72,7 +110,7 @@ func _build_title() -> void:
 		b.add_theme_font_size_override("font_size", 20)
 		b.pressed.connect(pair[1])
 		title_box.add_child(b)
-	var v := _lbl("Built with Godot 4  •  All art generated procedurally", 13, Color(0.6, 0.55, 0.6))
+	var v := _lbl("Built with Godot 4  •  All art and sound generated procedurally", 13, Color(0.6, 0.55, 0.6))
 	v.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_box.add_child(v)
 
@@ -307,6 +345,27 @@ func _hide_setup() -> void:
 	title_box.visible = true
 
 
+func _continue() -> void:
+	var s := SaveGame.latest()
+	if s == "" or not main.load_game(s):
+		_show_load()
+
+
+func _show_load() -> void:
+	title_box.visible = false
+	load_panel.open("load")
+
+
+func _show_sound() -> void:
+	title_box.visible = false
+	sound_panel.visible = true
+
+
+func _hide_sound() -> void:
+	sound_panel.visible = false
+	title_box.visible = true
+
+
 func _hide_how() -> void:
 	how.visible = false
 	title_box.visible = true
@@ -386,7 +445,11 @@ func _regen_preview() -> void:
 
 
 func back_pressed() -> void:
-	if setup.visible:
+	if load_panel.visible:
+		load_panel.close()
+	elif sound_panel.visible:
+		_hide_sound()
+	elif setup.visible:
 		_hide_setup()
 	elif how.visible:
 		_hide_how()

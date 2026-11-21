@@ -38,6 +38,7 @@ var doctrine_panel: Panel
 var doctrine_title: Label
 var doctrine_buttons: Array = []
 var doctrine_dismissed := -1
+var save_panel: SavePanel
 var touch_bar: VBoxContainer
 var context_bar: HBoxContainer
 var multi_btn: Button
@@ -292,7 +293,7 @@ func _center_panel(w: float, h: float) -> Panel:
 
 
 func _build_pause() -> void:
-	pause_panel = _center_panel(320, 280)
+	pause_panel = _center_panel(360, 520)
 	var vb := VBoxContainer.new()
 	vb.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vb.offset_left = 30
@@ -304,13 +305,19 @@ func _build_pause() -> void:
 	var t := _label("Paused", 26, Color(1, 0.85, 0.5))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(t)
-	for pair in [["Resume", toggle_pause], ["Controls (F1)", toggle_help], ["Quit to Main Menu", _quit]]:
+	for pair in [["Resume", toggle_pause], ["Save Game", _open_save], ["Save & Quit", _save_and_quit],
+			["Controls (F1)", toggle_help], ["Quit without saving", _quit]]:
 		var b := Button.new()
 		b.text = pair[0]
 		b.custom_minimum_size.y = 40
 		b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(pair[1])
 		vb.add_child(b)
+	vb.add_child(Sfx.volume_controls())
+	save_panel = SavePanel.new()
+	save_panel.game = game
+	root.add_child(save_panel)
+	save_panel.closed.connect(func(): pause_panel.visible = get_tree().paused)
 
 
 func _build_help() -> void:
@@ -384,6 +391,7 @@ func toggle_pause() -> void:
 	pause_panel.visible = paused
 	if not paused:
 		help_panel.visible = false
+		save_panel.visible = false
 
 
 func toggle_help() -> void:
@@ -394,10 +402,25 @@ func _quit() -> void:
 	game.quit_to_menu()
 
 
+func _open_save() -> void:
+	pause_panel.visible = false
+	save_panel.open("save")
+
+
+func _save_and_quit() -> void:
+	if game.save_to():
+		Sfx.play("complete")
+		game.quit_to_menu()
+	else:
+		message("Could not save the game.", Color(1, 0.4, 0.3))
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if get_tree().paused and event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_ESCAPE:
-			if help_panel.visible:
+			if save_panel.visible:
+				save_panel.close()
+			elif help_panel.visible:
 				help_panel.visible = false
 			else:
 				toggle_pause()
@@ -418,6 +441,7 @@ func selection_changed() -> void:
 
 func show_game_over(won: bool, how: String) -> void:
 	tip_panel.visible = false
+	Sfx.play("victory" if won else "defeat")
 	over_panel = _center_panel(760, 470)
 	over_panel.visible = true
 	var vb := VBoxContainer.new()
@@ -935,7 +959,9 @@ func is_over_ui(p: Vector2) -> bool:
 
 func back_pressed() -> void:
 	var ctl := game.ctl
-	if ctl.placing != "" or ctl.cast_pending >= 0 or ctl.amove_pending:
+	if save_panel.visible:
+		save_panel.close()
+	elif ctl.placing != "" or ctl.cast_pending >= 0 or ctl.amove_pending:
 		_touch_cancel()
 	elif help_panel.visible:
 		help_panel.visible = false
@@ -984,6 +1010,7 @@ func _on_cmd_pressed(i: int) -> void:
 	var c: Dictionary = cmds[i]
 	if not c["ok"]:
 		message(c.get("reason", "Not available"), Color(1, 0.6, 0.4))
+		Sfx.play("error", -6.0)
 		return
 	c["act"].call()
 	refresh_t = 0.0

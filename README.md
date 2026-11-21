@@ -29,6 +29,8 @@ To make a standalone executable: **Project → Export…**, add a Windows/macOS/
 | **Fog of war** | Unexplored areas, explored areas and current vision, with a live minimap |
 | **Champions** | Pick a hero class (Warlord, Archmage, High Priestess). It levels 1–10 from battle XP, gains stats each level, spends skill points on 4 abilities (ultimate at level 6) and respawns at your Town Hall. AI players get champions and cast their abilities too |
 | **Doctrines** | At champion levels 2, 4, 6, 8 and 10 you pick one of three army-wide passives (e.g. Drill Sergeant, Shield Wall, Command Aura, Siege Masters, Spoils of War). Some are auras around your champion |
+| **Save & load** | Save to Quick Save or 3 slots from the pause menu, **Save & Quit**, **Continue** / **Load Game** on the title screen. Autosaves every 3 minutes and whenever the app is closed or sent to the background on a phone |
+| **Sound** | Synthesized effects for combat, gathering, construction, magic, alerts and notifications, plus a looping fantasy soundtrack. Music and effects volume in the pause menu and on the title screen |
 | **Phones & tablets** | Full touch controls, a larger touch-friendly UI, Android APK and web builds |
 | **AI** | **Easy** and **Hard** opponents that build economies, age up, research, claim shrines, defend and attack in waves |
 
@@ -95,7 +97,11 @@ scripts/
   player_controller.gd      mouse/keyboard input, selection, placement
   rts_camera.gd             RTS camera
   hud.gd, minimap.gd, overlay.gd, ui_theme.gd, res_icon.gd, main_menu.gd
-  ui_test.gd, touch_test.gd scripted desktop / touch UI tests (developer tools)
+  save_game.gd, save_panel.gd  saving/loading matches and the slot picker
+  sfx.gd                    sound manager (autoload)
+  ui_test.gd, touch_test.gd, save_test.gd  scripted tests (developer tools)
+sounds/                     generated sound effects and music
+tools/gen_audio.py          regenerates sounds/ from scratch (python3 + numpy, ffmpeg for the music)
 export_presets.cfg          Android (APK) and Web export presets
 ```
 
@@ -115,4 +121,4 @@ It prints economy and performance stats each game-minute and quits at the end. O
 2. **Android:** in Editor Settings, set the Android SDK path and a keystore, then **Project → Export → Android → Export Project**. The preset builds an arm64 APK without needing Gradle.
 3. **Web:** **Project → Export → Web**. It's single-threaded, so it works on any static host (e.g. GitHub Pages) without special headers.
 
-Touch tests: `godot --headless -- --autotest --touch --touchtest`.
+Touch tests: `godot --headless -- --autotest --touch --touchtest`. Save/load round trip: `godot --headless --fixed-fps 20 -- --autotest --savetest`.

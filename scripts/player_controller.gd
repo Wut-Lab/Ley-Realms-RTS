@@ -45,6 +45,8 @@ func set_selection(list: Array) -> void:
 				e.set_selected(true)
 	if game.hud:
 		game.hud.selection_changed()
+	if not sel.is_empty() and is_instance_valid(sel[0]) and sel[0] is Entity and sel[0].pid == game.human:
+		Sfx.play("select", -8.0)
 
 
 func on_entity_removed(e) -> void:
@@ -336,6 +338,7 @@ func _place_at(p: Vector2, shift: bool) -> void:
 	var b := game.place_building(game.human, placing, p, own_workers(), ghost_rot)
 	if b == null:
 		var pl: PlayerData = game.players[game.human]
+		Sfx.play("error", -6.0)
 		if not pl.can_afford(Defs.BUILDINGS[placing]["cost"]):
 			game.hud.message(pl.missing_text(Defs.BUILDINGS[placing]["cost"]), Color(1, 0.6, 0.4))
 		else:
@@ -530,6 +533,7 @@ func _right_click(screen: Vector2) -> void:
 	if target is Entity and not target.visible:
 		target = null
 	game.cmd_smart(us, Vector2(gp.x, gp.z), target)
+	Sfx.play("order", -8.0)
 	game.spawn_fx("marker", gp + Vector3.UP * 0.1, 0.9, Color.WHITE)
 
 

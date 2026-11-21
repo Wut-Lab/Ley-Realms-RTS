@@ -424,6 +424,7 @@ func _perform_attack() -> void:
 		var amt: float = def["heal"] * player().mods["magic"]
 		target.hp = minf(target.max_hp, target.hp + amt)
 		game.spawn_fx("heal_fx", target.position + Vector3.UP * 0.3, 0.6, Color.WHITE)
+		Sfx.play_at("heal", position, -12.0)
 		return
 	var info := {
 		"atk": atk_val(), "type": def["atk_type"], "bonus": def.get("bonus", {}),
@@ -435,8 +436,18 @@ func _perform_attack() -> void:
 		if flying:
 			from = position + Vector3.UP * 0.6 + basis.z * 2.0
 		game.spawn_projectile(proj, from, target, info)
+		match proj:
+			"arrow": Sfx.play_at("bow", position, -6.0)
+			"fireball": Sfx.play_at("fire_cast", position, -8.0)
+			"boulder": Sfx.play_at("catapult", position, -2.0)
+			"holy": Sfx.play_at("cast", position, -10.0)
+			"flame":
+				if randf() < 0.35:
+					Sfx.play_at("roar", position, -3.0)
+				Sfx.play_at("fire_cast", position, -5.0)
 	else:
 		game.apply_damage(target, info)
+		Sfx.play_at("hit" if cls in ["monster", "worker"] else "sword", position, -4.0)
 
 
 func _gather(delta: float) -> void:
@@ -492,6 +503,7 @@ func _gather(delta: float) -> void:
 			carry += amt
 		else:
 			carry += node.take(amt)
+		_work_sound(delta, {"tree": "chop", "gold_mine": "mine", "mana_crystal": "mana"}.get(key, ""))
 		carry_type = gtype
 		_update_carry()
 	else:
@@ -566,6 +578,7 @@ func _build(delta: float) -> void:
 		_face(btarget.pos2() - pos2())
 		work += delta
 		btarget.add_work(delta)
+		_work_sound(delta, "hammer")
 	else:
 		_chase(btarget.pos2(), delta)
 
@@ -704,6 +717,18 @@ func _animate(delta: float) -> void:
 		body.position.z = 0.0
 
 
+var work_snd_t := randf()
+
+
+func _work_sound(delta: float, snd: String) -> void:
+	if snd == "":
+		return
+	work_snd_t -= delta
+	if work_snd_t <= 0.0:
+		work_snd_t = 0.9 + randf() * 0.3
+		Sfx.play_at(snd, position, -10.0 if snd == "mana" else -7.0)
+
+
 func _update_carry() -> void:
 	if carry_i == null:
 		return
@@ -749,6 +774,7 @@ func die(killer: Entity) -> void:
 	if node != null and is_instance_valid(node) and node is Building and node.farmer == self:
 		node.farmer = null
 	game.on_unit_died(self, killer)
+	Sfx.play_at("death", position, -5.0)
 	if ring:
 		ring.visible = false
 	var tw := create_tween()

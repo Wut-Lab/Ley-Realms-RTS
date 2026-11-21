@@ -65,6 +65,7 @@ func add_xp(x: float) -> void:
 		hp = minf(max_hp, hp + max_hp * 0.3)
 		game.spawn_fx("levelup", position, 1.0, Color.WHITE)
 		if pid == game.human and game.hud:
+			Sfx.play("levelup", -3.0)
 			game.hud.message("Your %s reached level %d! (+1 skill point)" % [cdef["name"], p.champ_level], Color(1, 0.85, 0.35))
 
 
@@ -190,6 +191,9 @@ func _cast(i: int, p: Vector2) -> void:
 	cds[i] = a["cd"]
 	lunge = 1.0
 	player().stats["casts"] = player().stats.get("casts", 0) + 1
+	var snd: String = {"leap": "sword", "nova": "frost", "mend": "heal", "holy_nova": "heal", "smite": "explosion",
+		"meteor": "fire_cast", "storm": "cast"}.get(a["id"], "cast")
+	Sfx.play_at(snd, position, -2.0)
 	var p3 := Vector3(p.x, game.height_at(p.x, p.y), p.y)
 	var rad: float = a["radius"]
 	match a["id"]:

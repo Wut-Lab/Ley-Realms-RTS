@@ -10,6 +10,10 @@ func _ready() -> void:
 	GameSettings.apply_device_settings(get_window())
 	if "--autotest" in OS.get_cmdline_user_args():
 		GameSettings.autotest = true
+		if "--savetest" in OS.get_cmdline_user_args():
+			var st = load("res://scripts/save_test.gd").new()
+			st.main = self
+			add_child.call_deferred(st)
 		GameSettings.ui_test = "--uitest" in OS.get_cmdline_user_args() or "--touchtest" in OS.get_cmdline_user_args()
 		for a in OS.get_cmdline_user_args():
 			if a.begins_with("--time="):
@@ -29,6 +33,11 @@ func _ready() -> void:
 				GameSettings.autotest = false
 				show_menu()
 				await get_tree().create_timer(1.0).timeout
+				get_viewport().get_texture().get_image().save_png(OS.get_user_data_dir() + "/title.png")
+				menu._show_load()
+				await get_tree().create_timer(0.5).timeout
+				get_viewport().get_texture().get_image().save_png(OS.get_user_data_dir() + "/load.png")
+				menu.load_panel.close()
 				menu._show_setup()
 				await get_tree().create_timer(1.0).timeout
 				get_viewport().get_texture().get_image().save_png(OS.get_user_data_dir() + "/menu.png")
@@ -74,6 +83,20 @@ func show_menu() -> void:
 	menu = m
 	layer.add_child(m)
 	_swap(layer)
+
+
+func load_game(slot: String) -> bool:
+	var data := SaveGame.read(slot)
+	if data.is_empty():
+		return false
+	SaveGame.apply_settings(data)
+	get_tree().paused = false
+	var g := Game.new()
+	g.main = self
+	g.load_data = data
+	g.save_slot = slot
+	_swap(g)
+	return true
 
 
 func start_game() -> void:

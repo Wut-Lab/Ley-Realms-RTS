@@ -223,6 +223,8 @@ func _spawn(id: String) -> void:
 	var u := game.spawn_unit(id, pid, sp)
 	if u == null:
 		return
+	if pid == game.human:
+		Sfx.play("ready", -6.0)
 	if rally_node != null and is_instance_valid(rally_node) and u.cls == "worker":
 		if rally_node is ResourceNode and not rally_node.depleted:
 			u.order_gather(rally_node)
@@ -248,6 +250,7 @@ func _defend(delta: float) -> void:
 		var info := {"atk": def["atk"] + player().mods["pierce_atk"], "type": "pierce", "bonus": {},
 			"splash": 0.0, "owner": pid, "src": self}
 		game.spawn_projectile("arrow", position + Vector3.UP * height * 0.85, target, info)
+		Sfx.play_at("bow", position, -8.0)
 
 
 func take_damage(amount: float, attacker: Entity) -> void:
@@ -273,6 +276,7 @@ func die(killer: Entity) -> void:
 	if flag:
 		flag.visible = false
 	game.spawn_fx("burst", position + Vector3.UP * 1.0, size * 0.6, Color.WHITE)
+	Sfx.play_at("collapse", position, 0.0)
 	var tw := create_tween()
 	tw.set_parallel(true)
 	tw.tween_property(model, "position:y", -height - 1.0, 2.5)

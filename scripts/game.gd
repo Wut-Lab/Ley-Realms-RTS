@@ -49,6 +49,9 @@ var fog_t := 0.0
 var stamp_cache := {}
 var check_t := 0.0
 var alert_t := {}
+var load_data: Dictionary = {}
+var save_slot := ""
+var autosave_t := 180.0
 var terrain_mat: ShaderMaterial
 var water_mat: ShaderMaterial
 
@@ -65,13 +68,18 @@ func _ready() -> void:
 	Engine.time_scale = GameSettings.SPEED_VALUES[gs.speed] if not gs.autotest else gs.test_scale
 
 	_init_fog()
+	Sfx.game = self
+	Sfx.play_music()
 	Models.setup(fog_tex, size, fog_on)
 	_build_environment()
 	_build_terrain()
 	_init_grid()
 	_create_players()
 	_spawn_map_objects()
-	_spawn_starts()
+	if load_data.is_empty():
+		_spawn_starts()
+	else:
+		SaveGame.restore(self, load_data)
 
 	cam = RTSCamera.new()
 	cam.game = self
@@ -109,6 +117,12 @@ func _ready() -> void:
 		var t = load("res://scripts/ui_test.gd").new()
 		t.game = self
 		add_child(t)
+	if not load_data.is_empty():
+		SaveGame.restore_late(self, load_data)
+		_update_fog()
+		hud.message("Game loaded (%s)." % SaveGame.SLOT_NAMES.get(save_slot, save_slot), Color(0.7, 1, 0.7))
+		load_data = {}
+		return
 	_update_fog()
 	hud.message("Welcome to %s. Gather resources and build your realm!" % GameSettings.BIOME_NAMES[md.biome], Color(1, 0.9, 0.6))
 	if peace_until > 0:
@@ -285,8 +299,11 @@ func _create_players() -> void:
 func _spawn_map_objects() -> void:
 	var mult: float = [0.75, 1.0, 1.4][GameSettings.abundance]
 	var tree_groups := {}
+	var ri := 0
 	for r in md.resources:
 		var n := ResourceNode.new()
+		n.idx = ri
+		ri += 1
 		n.setup(self, r["type"], mult)
 		var p: Vector2 = r["pos"]
 		n.position = Vector3(p.x, height_at(p.x, p.y), p.y)
@@ -333,6 +350,8 @@ func _spawn_map_objects() -> void:
 		deco.mesh = Models.mesh("lair")
 		deco.position = Vector3(lp.x, height_at(lp.x, lp.y), lp.y)
 		add_child(deco)
+		if not load_data.is_empty():
+			continue  # monsters come from the save
 		var i := 0
 		for mk in l["monsters"]:
 			var off := Vector2.from_angle(i * 2.1) * 1.5
@@ -500,6 +519,11 @@ func _process(delta: float) -> void:
 		_check_victory()
 	if victory_mode > 0:
 		_update_control(delta)
+	if not GameSettings.autotest:
+		autosave_t -= delta / maxf(Engine.time_scale, 0.01)
+		if autosave_t <= 0.0:
+			autosave_t = 180.0
+			SaveGame.save(self, "autosave")
 	if GameSettings.autotest:
 		_autotest_report()
 		if not GameSettings.shots.is_empty():
@@ -1246,6 +1270,7 @@ func on_attacked(victim: Entity, attacker: Entity) -> void:
 			alert_t[key] = elapsed
 			if hud:
 				hud.message("Your %s is under attack!" % victim.display_name().to_lower(), Color(1, 0.4, 0.3))
+				Sfx.play("alert", -4.0)
 				hud.ping(victim.pos2())
 	for ai in ais:
 		if ai.pid == victim.pid:
@@ -1276,6 +1301,7 @@ func on_building_complete(b: Building, initial: bool = false) -> void:
 		players[b.pid].stats["built"] += 1
 		if b.pid == human and hud:
 			hud.message("%s complete." % b.def["name"], Color(0.7, 1, 0.7))
+			Sfx.play("complete", -5.0)
 	if b.rally == Vector2.INF and b.def.has("trains"):
 		var c := (Vector2(size, size) * 0.5 - b.pos2()).normalized()
 		b.rally = b.pos2() + c * (b.size * 0.5 + 2.5)
@@ -1334,6 +1360,7 @@ func finish_tech(owner_id: int, id: String) -> void:
 					u.max_hp += 40.0
 					u.hp += 40.0
 	if owner_id == human and hud:
+		Sfx.play("age_up" if id.begins_with("age") else "research", -3.0)
 		hud.message("Research complete: %s" % Defs.TECHS[id]["name"].replace("Advance: ", ""), Color(0.6, 0.9, 1.0))
 	elif id.begins_with("age") and hud and not players[owner_id].defeated:
 		hud.message("%s has advanced to the %s." % [p.name, Defs.AGE_NAMES[p.age]], Color(0.9, 0.85, 0.6))
@@ -1345,6 +1372,7 @@ func on_shrine_captured(s: Shrine) -> void:
 		return
 	var p: PlayerData = players[s.owner_id]
 	if s.owner_id == human:
+		Sfx.play("shrine", -3.0)
 		hud.message("You captured a Ley Shrine! (+mana)", Color(0.5, 0.95, 1.0))
 	else:
 		hud.message("%s captured a Ley Shrine." % p.name, Color(0.9, 0.7, 0.5))
@@ -1353,6 +1381,7 @@ func on_shrine_captured(s: Shrine) -> void:
 
 func on_shrine_lost(s: Shrine, old: int) -> void:
 	if old == human and hud:
+		Sfx.play("alert", -6.0)
 		hud.message("You lost control of a Ley Shrine!", Color(1, 0.5, 0.3))
 		hud.ping(s.pos2())
 
@@ -1520,6 +1549,28 @@ func def_heals(us: Array) -> bool:
 		if u.def.has("heal"):
 			return true
 	return false
+
+
+func _notification(what: int) -> void:
+	# phones: the OS may kill a backgrounded app, so save when we lose focus or close
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if not over and not GameSettings.autotest and is_inside_tree() and hud != null:
+			SaveGame.save(self, "autosave")
+
+
+## Saves to the given slot (or the slot this game was last saved/loaded from) and remembers it.
+func save_to(slot: String = "") -> bool:
+	if slot == "":
+		slot = save_slot if save_slot != "" and save_slot != "autosave" else "quick"
+	var ok := SaveGame.save(self, slot)
+	if ok:
+		save_slot = slot
+	return ok
+
+
+func _exit_tree() -> void:
+	if Sfx.game == self:
+		Sfx.game = null
 
 
 func quit_to_menu() -> void:

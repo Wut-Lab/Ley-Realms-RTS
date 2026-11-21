@@ -65,6 +65,10 @@ func tick(delta: float) -> void:
 
 func _hit() -> void:
 	var splash: float = info.get("splash", 0.0)
+	match kind:
+		"arrow": Sfx.play_at("arrow_hit", tpos, -8.0)
+		"boulder": Sfx.play_at("explosion", tpos, -2.0)
+		"fireball", "flame": Sfx.play_at("explosion", tpos, -9.0)
 	if splash > 0.0:
 		game.splash_damage(tpos, splash, info, target)
 		game.spawn_fx("burst", tpos, splash * 0.7, Color.WHITE)

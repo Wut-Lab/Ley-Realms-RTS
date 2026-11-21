@@ -16,6 +16,7 @@ var mesh_i: MeshInstance3D
 var cells := Rect2i()
 var model_key := ""
 var seen := true
+var idx := -1
 
 
 func setup(g: Game, k: String, mult: float) -> void:
