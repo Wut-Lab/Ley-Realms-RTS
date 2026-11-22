@@ -49,6 +49,7 @@ var fog_t := 0.0
 var stamp_cache := {}
 var check_t := 0.0
 var alert_t := {}
+var last_alert := Vector2.INF
 var gate_cells := {}
 var camps: Array = []
 var recruit_groups := {}
@@ -1596,6 +1597,7 @@ func splash_damage(p: Vector3, r: float, info: Dictionary, primary: Entity) -> v
 
 func on_attacked(victim: Entity, attacker: Entity) -> void:
 	if victim.pid == human and attacker != null and is_instance_valid(attacker):
+		last_alert = victim.pos2()
 		var key := "b" if victim.is_building else "u"
 		if elapsed - alert_t.get(key, -100.0) > 12.0:
 			alert_t[key] = elapsed

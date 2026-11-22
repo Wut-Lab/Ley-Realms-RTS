@@ -42,6 +42,9 @@ var save_panel: SavePanel
 var touch_bar: VBoxContainer
 var context_bar: HBoxContainer
 var multi_btn: Button
+var idle_btn: Button
+var touch_idle_btn: Button
+var alert_btn: Button
 var context_buttons := {}
 var press_t := {}
 var tip_hide_t := 0.0
@@ -127,6 +130,17 @@ func _build_top() -> void:
 		hb.add_child(box)
 	pop_label = _label("", 16)
 	hb.add_child(pop_label)
+	idle_btn = Button.new()
+	idle_btn.focus_mode = Control.FOCUS_NONE
+	idle_btn.tooltip_text = "Idle peasants. Click to cycle through them (.)"
+	idle_btn.pressed.connect(func(): game.ctl.select_idle_worker())
+	hb.add_child(idle_btn)
+	alert_btn = Button.new()
+	alert_btn.focus_mode = Control.FOCUS_NONE
+	alert_btn.text = "! Alert"
+	alert_btn.tooltip_text = "Jump to your most recent attack (Backspace)"
+	alert_btn.pressed.connect(func(): game.ctl.jump_to_alert())
+	hb.add_child(alert_btn)
 	champ_btn = Button.new()
 	champ_btn.focus_mode = Control.FOCUS_NONE
 	champ_btn.tooltip_text = "Select your champion (` or F2). Double-click to jump to it."
@@ -339,7 +353,7 @@ func _build_help() -> void:
 [b]Arrow keys / screen edge[/b] pan  •  [b]Mouse wheel[/b] zoom  •  [b]Middle drag / PgUp PgDn[/b] rotate  •  [b]Home[/b] reset view
 [b]Ctrl+0-9[/b] set control group  •  [b]0-9[/b] select group (double-tap to jump)
 [b]` or F2[/b] select champion (twice to jump)  •  champion abilities Q W E R, learn Z X C V
-[b]H[/b] town hall  •  [b].[/b] next idle peasant  •  [b]Space[/b] centre on selection  •  [b]Delete[/b] destroy selected
+[b]H[/b] town hall  •  [b].[/b] next idle peasant  •  [b]Backspace[/b] jump to last attack  •  [b]Space[/b] centre on selection  •  [b]Delete[/b] destroy selected
 [b]+ / -[/b] game speed  •  [b]Esc[/b] cancel / pause
 
 [b]Building[/b]: select peasants and pick a building. Place it anywhere valid (green). [b]R[/b] rotates, [b]Shift[/b]-click places several. Walls: click and drag a line.
@@ -510,6 +524,16 @@ func _process(delta: float) -> void:
 	var cap := mini(p.pop_cap, p.max_pop)
 	pop_label.text = "Pop %d/%d" % [p.pop, cap]
 	pop_label.add_theme_color_override("font_color", Color(1, 0.5, 0.4) if p.pop >= cap else Color(0.96, 0.9, 0.78))
+	var n_idle := 0
+	for u in game.units:
+		if u.alive and u.pid == game.human and u.cls == "worker" and u.state == Unit.IDLE:
+			n_idle += 1
+	idle_btn.text = "Idle %d" % n_idle
+	idle_btn.add_theme_color_override("font_color", Color(1, 0.8, 0.3) if n_idle > 0 else Color(0.6, 0.6, 0.6))
+	if touch_idle_btn:
+		touch_idle_btn.text = "Idle (%d)" % n_idle
+	var recent: bool = game.last_alert != Vector2.INF and game.elapsed - maxf(game.alert_t.get("u", -100.0), game.alert_t.get("b", -100.0)) < 20.0
+	alert_btn.add_theme_color_override("font_color", Color(1, 0.35, 0.3) if recent else Color(0.6, 0.6, 0.6))
 	age_label.text = Defs.AGE_NAMES[p.age]
 	if p.champ_class == "":
 		champ_btn.visible = false
@@ -963,12 +987,14 @@ func _build_touch() -> void:
 	touch_bar.add_theme_constant_override("separation", 6)
 	root.add_child(touch_bar)
 	for pair in [["Army", func(): game.ctl.select_army()], ["Idle", func(): game.ctl.select_idle_worker()],
-			["Hero", _on_champ_btn], ["Town", func(): game.ctl.select_town_hall()],
+			["Alert", func(): game.ctl.jump_to_alert()], ["Hero", _on_champ_btn], ["Town", func(): game.ctl.select_town_hall()],
 			["Multi: Off", _toggle_multi], ["Clear", func(): game.ctl.set_selection([])]]:
 		var b := _touch_button(pair[0], pair[1])
 		touch_bar.add_child(b)
 		if pair[0].begins_with("Multi"):
 			multi_btn = b
+		elif pair[0] == "Idle":
+			touch_idle_btn = b
 	context_bar = HBoxContainer.new()
 	context_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	context_bar.offset_left = -200

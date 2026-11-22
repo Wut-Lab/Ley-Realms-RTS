@@ -422,6 +422,15 @@ func select_army() -> void:
 	set_selection(army)
 
 
+## Centres the camera on where you were most recently attacked.
+func jump_to_alert() -> void:
+	if game.last_alert == Vector2.INF:
+		game.hud.message("No recent attacks.", Color(0.8, 0.8, 0.8))
+		return
+	_cam().center_on(game.last_alert)
+	game.hud.ping(game.last_alert)
+
+
 func select_idle_worker() -> void:
 	var idle: Array = game.units.filter(func(u): return u.alive and u.pid == game.human and u.cls == "worker" and u.state == Unit.IDLE)
 	if idle.is_empty():
@@ -624,6 +633,8 @@ func _key(e: InputEventKey) -> void:
 					_cam().center_on(b.pos2())
 					break
 			return
+		KEY_BACKSPACE:
+			jump_to_alert()
 		KEY_PERIOD:
 			var idle: Array = game.units.filter(func(u): return u.alive and u.pid == game.human and u.cls == "worker" and u.state == Unit.IDLE)
 			if idle.is_empty():
