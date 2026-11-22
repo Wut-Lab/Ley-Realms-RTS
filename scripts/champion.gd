@@ -57,7 +57,7 @@ func add_xp(x: float) -> void:
 	var p := player()
 	if p.champ_level >= Defs.MAX_LEVEL:
 		return
-	p.champ_xp += x
+	p.champ_xp += x * p.mods.get("xp", 1.0)
 	while p.champ_level < Defs.MAX_LEVEL and p.champ_xp >= Defs.XP_TABLE[p.champ_level + 1]:
 		p.champ_level += 1
 		p.champ_points += 1

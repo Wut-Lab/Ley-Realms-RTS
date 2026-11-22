@@ -305,6 +305,23 @@ static func cost_text(cost: Dictionary) -> String:
 
 
 # ---------------------------------------------------------------- champions
+# ---------------------------------------------------------------- factions
+const FACTION_ORDER := ["dawnspire", "thornveil", "ironhold", "starweave"]
+const FACTIONS := {
+	"dawnspire": {"name": "Dawnspire Concord", "sigil": "Radiant Sun", "color": Color(1.0, 0.8, 0.3),
+		"perk": "Hallowed Bastions: buildings have +35% HP, towers +1 range, and all units slowly regenerate.",
+		"blurb": "Sun-priests who raise white citadels. Strong defenders who outlast any siege."},
+	"thornveil": {"name": "Thornveil Wilds", "sigil": "Thorned Leaf", "color": Color(0.45, 0.85, 0.35),
+		"perk": "Forest Paths: +20% wood gathering, units move 12% faster, ranged units +1 range.",
+		"blurb": "Druid-kin of the deep woods. Swift raiders who strike from the treeline."},
+	"ironhold": {"name": "Ironhold Clans", "sigil": "Ember Anvil", "color": Color(0.85, 0.55, 0.35),
+		"perk": "Forgeborn: melee units +15% damage and +1 armor, siege +30% damage, +10% gold, but units move 5% slower.",
+		"blurb": "Mountain smiths who march in heavy steel. Slow, but crushing up close."},
+	"starweave": {"name": "Starweave Circle", "sigil": "Eight-Pointed Star", "color": Color(0.6, 0.7, 1.0),
+		"perk": "Ley Attunement: +35% mana gathering, +30% magic and healing, champion earns +40% XP.",
+		"blurb": "Astromancers who drink from the ley lines. Their magic and heroes grow fast."},
+}
+
 const CHAMPION_ORDER := ["warlord", "archmage", "priestess"]
 const XP_TABLE := [0, 0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700]
 const MAX_LEVEL := 10

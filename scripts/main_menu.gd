@@ -209,6 +209,10 @@ func _build_setup() -> void:
 	_option(g2, "difficulty", "AI difficulty", GameSettings.DIFFICULTY_NAMES, gs.difficulty)
 	_option(g2, "teams", "Teams", GameSettings.TEAM_NAMES, gs.teams)
 	_option(g2, "player_color", "Your colour", Defs.COLOR_NAMES.slice(1), gs.player_color - 1)
+	var fn: Array = []
+	for k in Defs.FACTION_ORDER:
+		fn.append(Defs.FACTIONS[k]["name"])
+	_option(g2, "faction", "Your faction", fn, gs.faction)
 	_check(g2, "champions", "Champions (hero units)", gs.champions)
 	var cn: Array = []
 	for k in Defs.CHAMPION_ORDER:
@@ -399,6 +403,10 @@ func _on_opt(key: String, v) -> void:
 		_: gs.set(key, v)
 	if key == "touch_mode" or key == "quality":
 		gs.apply_device_settings(get_window())
+		return
+	if key == "faction":
+		var f: Dictionary = Defs.FACTIONS[Defs.FACTION_ORDER[v]]
+		info_label.text = "%s (sigil: %s) - %s\n%s" % [f["name"], f["sigil"], f["blurb"], f["perk"]]
 		return
 	if key == "champion_class":
 		info_label.text = Defs.CHAMPIONS[Defs.CHAMPION_ORDER[v]]["name"] + ": " + Defs.CHAMPIONS[Defs.CHAMPION_ORDER[v]]["blurb"]

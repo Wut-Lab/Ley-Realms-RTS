@@ -21,8 +21,9 @@ var mods := {
 	"melee_atk": 0.0, "pierce_atk": 0.0, "range": 0.0, "armor": 0.0, "parmor": 0.0, "magic": 1.0,
 	"food": 1.0, "wood": 1.0, "gold": 1.0, "mana": 1.0, "bhp": 1.0, "knight_hp": 0.0,
 	"atk_mult": 1.0, "inf_mult": 1.0, "ranged_mult": 1.0, "ranged_range": 0.0, "cav_mult": 1.0,
-	"speed_mult": 1.0, "cav_speed": 1.0, "regen": 0.0, "siege_mult": 1.0, "hp_mult": 1.0,
+	"speed_mult": 1.0, "cav_speed": 1.0, "regen": 0.0, "siege_mult": 1.0, "hp_mult": 1.0, "xp": 1.0,
 }
+var faction := "dawnspire"
 var champ_class := ""
 var champ_level := 1
 var champ_xp := 0.0

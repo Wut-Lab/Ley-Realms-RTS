@@ -9,10 +9,10 @@ const SLOTS := ["quick", "slot1", "slot2", "slot3", "autosave"]
 const SLOT_NAMES := {"quick": "Quick Save", "slot1": "Slot 1", "slot2": "Slot 2", "slot3": "Slot 3", "autosave": "Autosave"}
 const SETTINGS_KEYS := ["map_size", "biome", "map_seed", "num_ai", "difficulty", "abundance", "start_res", "forests",
 	"water", "relief", "fog", "reveal", "monsters", "shrines", "start_age", "peace", "victory", "pop_cap", "teams",
-	"player_color", "speed", "champions", "champion_class", "mercs"]
+	"player_color", "speed", "champions", "champion_class", "mercs", "faction"]
 const PLAYER_KEYS := ["name", "team", "human", "ai_hard", "res", "age", "techs", "researching", "max_pop", "defeated",
 	"gather_mult", "mods", "stats", "champ_class", "champ_level", "champ_xp", "champ_points", "champ_ranks",
-	"champ_respawn", "passives", "bell"]
+	"champ_respawn", "passives", "bell", "faction"]
 
 
 static func _path(slot: String) -> String:

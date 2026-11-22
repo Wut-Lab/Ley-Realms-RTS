@@ -45,6 +45,7 @@ var player_color := 1
 var speed := 0
 var champions := true
 var champion_class := 0
+var faction := 0
 var touch_mode := 0  # 0 auto, 1 touch, 2 mouse & keyboard
 var quality := 0  # 0 auto, 1 high, 2 low
 var touch_active := false

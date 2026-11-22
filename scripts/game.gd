@@ -332,7 +332,34 @@ func _create_players() -> void:
 		for j in 4:
 			p.res[Defs.RES[j]] = float(sr[j])
 		p.age = gs.start_age
+		p.faction = Defs.FACTION_ORDER[gs.faction] if p.human else Defs.FACTION_ORDER[rng.randi() % Defs.FACTION_ORDER.size()]
+		apply_faction(p)
 		players.append(p)
+
+
+## Faction perks, applied once at game start (mods are saved with the player).
+static func apply_faction(p: PlayerData) -> void:
+	var m := p.mods
+	match p.faction:
+		"dawnspire":
+			m["bhp"] *= 1.35
+			m["range"] += 1.0
+			m["regen"] += 0.35
+		"thornveil":
+			m["wood"] += 0.2
+			m["speed_mult"] *= 1.12
+			m["ranged_range"] += 1.0
+		"ironhold":
+			m["inf_mult"] *= 1.15
+			m["cav_mult"] *= 1.15
+			m["armor"] += 1.0
+			m["siege_mult"] *= 1.3
+			m["gold"] += 0.1
+			m["speed_mult"] *= 0.95
+		"starweave":
+			m["mana"] += 0.35
+			m["magic"] += 0.3
+			m["xp"] = 1.4
 
 
 func _spawn_map_objects() -> void:

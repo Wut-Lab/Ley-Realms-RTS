@@ -114,6 +114,13 @@ func _build_top() -> void:
 	hb.offset_right = -10
 	hb.add_theme_constant_override("separation", 18)
 	top.add_child(hb)
+	var fi := FactionIcon.new()
+	fi.faction = game.players[game.human].faction
+	fi.custom_minimum_size = Vector2(30, 30)
+	fi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var fd: Dictionary = Defs.FACTIONS[fi.faction]
+	fi.tooltip_text = "%s\n%s" % [fd["name"], fd["perk"]]
+	hb.add_child(fi)
 	for r in Defs.RES:
 		var box := HBoxContainer.new()
 		box.add_theme_constant_override("separation", 6)
@@ -491,7 +498,7 @@ func show_game_over(won: bool, how: String) -> void:
 		grid.add_child(_label(h, 15, Color(1, 0.85, 0.5)))
 	for i in range(1, game.players.size()):
 		var p: PlayerData = game.players[i]
-		grid.add_child(_label(p.name, 15, p.color.lightened(0.3)))
+		grid.add_child(_label("%s - %s" % [p.name, Defs.FACTIONS[p.faction]["name"]], 15, p.color.lightened(0.3)))
 		for k in ["trained", "killed", "lost", "built", "razed", "gathered"]:
 			grid.add_child(_label(str(int(p.stats[k])), 15))
 	vb.add_child(grid)
@@ -620,7 +627,7 @@ func _refresh_selection() -> void:
 	info_name.text = e.display_name()
 	if e is Entity:
 		var op: PlayerData = game.players[e.pid]
-		info_owner.text = "   " + op.name
+		info_owner.text = "   " + op.name + ("  (%s)" % Defs.FACTIONS[op.faction]["name"] if e.pid > 0 else "")
 		info_owner.add_theme_color_override("font_color", op.color.lightened(0.3))
 		if e is Unit and e.recruit_group >= 0:
 			info_owner.text = "   Freeblades (neutral)"
