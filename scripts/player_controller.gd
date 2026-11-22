@@ -548,6 +548,8 @@ func _right_click(screen: Vector2) -> void:
 			if target is ResourceNode or (target is Building and target.kind == "farm" and target.pid == game.human):
 				rn = target
 			b.set_rally(Vector2(gp.x, gp.z), rn)
+			if rn != null:
+				flash_ring(rn)
 			game.spawn_fx("marker", gp + Vector3.UP * 0.1, 1.0, Color.WHITE)
 		return
 	var us := own_units()
@@ -556,8 +558,24 @@ func _right_click(screen: Vector2) -> void:
 	if target is Entity and not target.visible:
 		target = null
 	game.cmd_smart(us, Vector2(gp.x, gp.z), target)
+	if target is ResourceNode or (target is Building and target.kind == "farm" and target.pid == game.human):
+		flash_ring(target)
 	Sfx.play("order", -8.0)
 	game.spawn_fx("marker", gp + Vector3.UP * 0.1, 0.9, Color.WHITE)
+
+
+## Briefly outlines a resource (or farm) that workers were just sent to gather.
+func flash_ring(t: Node3D) -> void:
+	var r: float = t.radius + 0.35 if t is ResourceNode else t.def["size"] * 0.62
+	var m := MeshInstance3D.new()
+	m.mesh = Models.ring_mesh(r, Color(1.0, 0.85, 0.3))
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.position = Vector3(t.position.x, game.height_at(t.position.x, t.position.z) + 0.08, t.position.z)
+	game.add_child(m)
+	var tw := m.create_tween()
+	tw.tween_interval(0.9)
+	tw.tween_property(m, "scale", Vector3(1.15, 1, 1.15), 0.3)
+	tw.tween_callback(m.queue_free)
 
 
 func _key(e: InputEventKey) -> void:

@@ -1785,6 +1785,19 @@ func _check_victory() -> void:
 		_end_game(true, "Conquest")
 
 
+func concede() -> void:
+	var p: PlayerData = players[human]
+	p.defeated = true
+	p.champ_respawn = -1.0
+	for b in buildings.duplicate():
+		if b.pid == human and b.alive:
+			b.die(null)
+	for u in units.duplicate():
+		if u.pid == human and u.alive:
+			u.die(null)
+	_end_game(false, "Concession")
+
+
 func _end_game(won: bool, how: String) -> void:
 	if over:
 		return

@@ -293,7 +293,7 @@ func _center_panel(w: float, h: float) -> Panel:
 
 
 func _build_pause() -> void:
-	pause_panel = _center_panel(360, 520)
+	pause_panel = _center_panel(360, 572)
 	var vb := VBoxContainer.new()
 	vb.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vb.offset_left = 30
@@ -306,7 +306,7 @@ func _build_pause() -> void:
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vb.add_child(t)
 	for pair in [["Resume", toggle_pause], ["Save Game", _open_save], ["Save & Quit", _save_and_quit],
-			["Controls (F1)", toggle_help], ["Quit without saving", _quit]]:
+			["Controls (F1)", toggle_help], ["Concede", _concede], ["Quit without saving", _quit]]:
 		var b := Button.new()
 		b.text = pair[0]
 		b.custom_minimum_size.y = 40
@@ -401,6 +401,13 @@ func toggle_help() -> void:
 
 func _quit() -> void:
 	game.quit_to_menu()
+
+
+func _concede() -> void:
+	if game.over:
+		return
+	toggle_pause()
+	game.concede()
 
 
 func _open_save() -> void:
