@@ -49,6 +49,12 @@ func _run() -> void:
 		pd[k] = Defs.TECHS["up_paladin"]["stats"][k]
 	pd["tier"] = 1
 	pal.set_def(pd)
+	for i in 4:
+		var pz := game.spawn_unit("peasant", h, c + Vector2(-2.4 + i * 1.1, 7.4))
+		pz.model_alt = i % 2
+		pz.set_def(pz.def)
+		pz.rotation.y = 0.0
+		pz.order_hold()
 	var ws: Array = game.units.filter(func(u): return u.pid == h and u.cls == "worker")
 	for u in ws.slice(0, 3):
 		game.enter_garrison(u, th)

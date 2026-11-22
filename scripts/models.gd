@@ -206,7 +206,7 @@ void fragment() {
 }
 """
 
-const UNIT_MODELS := ["peasant", "swordsman", "spearman", "archer", "warden", "knight", "mage", "cleric", "catapult",
+const UNIT_MODELS := ["peasant", "peasant_b", "swordsman", "spearman", "archer", "warden", "knight", "mage", "cleric", "catapult",
 	"dragon", "wolf", "troll", "ironbreaker", "ranger", "ogre", "golem", "griffin", "champ_warlord", "champ_archmage", "champ_priestess"]
 
 static var cache := {}
@@ -293,6 +293,23 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.cyl(Vector3(0, 1.3, 0), 0.1, 0.27, 0.12, STRAW, 10)
 			mb.box(Vector3(0.27, 0.78, 0.28), Vector3(0.05, 0.05, 0.6), WOOD)
 			mb.box(Vector3(0.27, 0.78, 0.58), Vector3(0.05, 0.22, 0.08), STEEL)
+			mb.box(Vector3(0, 0.98, 0.1), Vector3(0.2, 0.08, 0.06), tc.darkened(0.3))
+			mb.box(Vector3(0.16, 0.56, 0.12), Vector3(0.1, 0.12, 0.06), LEATHER.darkened(0.2))
+			mb.sphere(Vector3(0, 1.13, 0.12), 0.07, Color(0.45, 0.3, 0.18), Vector3(1, 0.8, 0.6))
+		"peasant_b":
+			_legs(mb, Color(0.36, 0.3, 0.24))
+			mb.cyl(Vector3(0, 0.62, 0), 0.2, 0.27, 0.42, tc.darkened(0.1), 10)
+			mb.box(Vector3(0, 0.9, 0), Vector3(0.36, 0.34, 0.24), Color(0.86, 0.8, 0.66))
+			mb.box(Vector3(0, 0.75, 0.11), Vector3(0.3, 0.5, 0.04), Color(0.92, 0.9, 0.82))
+			mb.box(Vector3(0, 0.76, 0), Vector3(0.39, 0.06, 0.27), LEATHER)
+			_arms(mb, Color(0.86, 0.8, 0.66))
+			mb.sphere(Vector3(0, 1.19, 0), 0.15, SKIN)
+			mb.sphere(Vector3(0, 1.24, -0.02), 0.165, tc, Vector3(1, 0.85, 1.05))
+			mb.box(Vector3(0, 1.1, -0.16), Vector3(0.12, 0.14, 0.06), tc.darkened(0.15))
+			mb.sphere(Vector3(0, 0.92, -0.22), 0.17, Color(0.7, 0.6, 0.42), Vector3(1, 1.1, 0.7))
+			mb.box(Vector3(0, 1.08, -0.22), Vector3(0.08, 0.06, 0.08), LEATHER)
+			mb.box(Vector3(0.27, 0.66, 0.2), Vector3(0.05, 0.7, 0.05), WOOD, Vector3(0.6, 0, 0))
+			mb.box(Vector3(0.27, 0.9, 0.36), Vector3(0.05, 0.06, 0.34), STEEL, Vector3(0.6, 0, 0))
 		"swordsman":
 			_legs(mb, DSTONE)
 			mb.box(Vector3(0, 0.82, 0), Vector3(0.42, 0.52, 0.27), tc)
@@ -305,6 +322,11 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.box(Vector3(0.3, 0.75, 0.05), Vector3(0.18, 0.05, 0.05), GOLD)
 			mb.box(Vector3(-0.32, 0.8, 0.12), Vector3(0.06, 0.55, 0.42), tc)
 			mb.box(Vector3(-0.35, 0.8, 0.12), Vector3(0.04, 0.6, 0.47), STEEL.darkened(0.3))
+			mb.sphere(Vector3(-0.38, 0.8, 0.12), 0.07, GOLD)
+			mb.box(Vector3(0, 0.6, 0), Vector3(0.44, 0.07, 0.29), LEATHER)
+			mb.box(Vector3(0, 0.6, 0.14), Vector3(0.08, 0.07, 0.02), GOLD)
+			mb.box(Vector3(0, 0.45, 0.1), Vector3(0.3, 0.22, 0.05), tc.darkened(0.2))
+			mb.box(Vector3(0, 1.28, 0.15), Vector3(0.22, 0.025, 0.04), Color(0.1, 0.1, 0.12))
 		"spearman":
 			_legs(mb, LEATHER)
 			mb.box(Vector3(0, 0.82, 0), Vector3(0.4, 0.5, 0.25), tc)
@@ -314,6 +336,9 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.box(Vector3(0.28, 1.05, 0.12), Vector3(0.05, 2.1, 0.05), WOOD)
 			mb.cone(Vector3(0.28, 2.2, 0.12), 0.07, 0.25, STEEL, 4)
 			mb.cyl(Vector3(-0.3, 0.82, 0.08), 0.26, 0.26, 0.06, tc.darkened(0.3), 10, Vector3(0, 0, PI / 2))
+			mb.sphere(Vector3(-0.34, 0.82, 0.08), 0.06, STEEL)
+			mb.box(Vector3(0, 0.6, 0), Vector3(0.42, 0.07, 0.27), LEATHER.darkened(0.2))
+			mb.box(Vector3(0.28, 2.05, 0.12), Vector3(0.12, 0.06, 0.02), tc)
 		"archer":
 			_legs(mb, LEATHER)
 			mb.box(Vector3(0, 0.82, 0), Vector3(0.38, 0.5, 0.24), Color(0.3, 0.45, 0.22))
@@ -324,6 +349,10 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.box(Vector3(-0.32, 0.9, 0.18), Vector3(0.05, 1.1, 0.06), WOOD, Vector3(0.15, 0, 0))
 			mb.box(Vector3(-0.32, 0.9, 0.2), Vector3(0.01, 1.05, 0.01), Color(0.9, 0.9, 0.85))
 			mb.cyl(Vector3(0.1, 0.95, -0.17), 0.08, 0.08, 0.5, LEATHER, 6, Vector3(0.3, 0, 0))
+			for qi in 3:
+				mb.box(Vector3(0.06 + qi * 0.04, 1.25, -0.24), Vector3(0.02, 0.12, 0.06), Color(0.95, 0.95, 0.9), Vector3(0.3, 0, 0))
+			mb.box(Vector3(0, 0.6, 0), Vector3(0.4, 0.06, 0.26), LEATHER.darkened(0.2))
+			mb.box(Vector3(0.12, 0.98, 0), Vector3(0.05, 0.5, 0.26), LEATHER, Vector3(0, 0, 0.6))
 		"warden":
 			_legs(mb, GOLD.darkened(0.3), 1.15)
 			mb.box(Vector3(0, 0.98, 0), Vector3(0.5, 0.62, 0.32), GOLD.darkened(0.15))
@@ -353,6 +382,15 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.box(Vector3(0.26, 1.6, 0.6), Vector3(0.06, 0.06, 1.8), WOOD)
 			mb.cone(Vector3(0.26, 1.6, 1.6), 0.06, 0.25, STEEL, 4, Vector3(PI / 2, 0, 0))
 			mb.box(Vector3(-0.28, 1.55, 0.05), Vector3(0.05, 0.45, 0.35), tc.darkened(0.2))
+			mb.box(Vector3(0, 1.45, 0.45), Vector3(0.06, 0.25, 0.6), Color(0.12, 0.08, 0.06), Vector3(-0.5, 0, 0))
+			mb.box(Vector3(0, 1.22, -0.05), Vector3(0.5, 0.1, 0.5), LEATHER.darkened(0.2))
+			for lx in [-0.15, 0.15]:
+				for lz in [-0.45, 0.45]:
+					mb.box(Vector3(lx, 0.04, lz), Vector3(0.14, 0.08, 0.15), Color(0.15, 0.12, 0.1))
+			mb.sphere(Vector3(0.1, 1.55, 0.95), 0.03, Color(0.05, 0.05, 0.05))
+			mb.sphere(Vector3(-0.1, 1.55, 0.95), 0.03, Color(0.05, 0.05, 0.05))
+			mb.cyl(Vector3(0, 2.25, -0.05), 0.01, 0.04, 0.2, tc, 5)
+			mb.sphere(Vector3(-0.31, 1.55, 0.05), 0.06, GOLD)
 		"mage":
 			mb.cyl(Vector3(0, 0.55, 0), 0.16, 0.34, 1.1, tc, 10)
 			mb.box(Vector3(0, 0.95, 0), Vector3(0.38, 0.12, 0.26), GOLD)
@@ -362,6 +400,10 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.cone(Vector3(0, 1.62, -0.03), 0.17, 0.55, tc.darkened(0.4), 8, Vector3(-0.2, 0, 0))
 			mb.box(Vector3(0.3, 0.9, 0.15), Vector3(0.05, 1.6, 0.05), DWOOD)
 			mb.sphere(Vector3(0.3, 1.75, 0.15), 0.11, Color(1.0, 0.5, 0.15, 0.2))
+			mb.cone(Vector3(0, 1.08, 0.12), 0.08, 0.22, Color(0.85, 0.85, 0.88), 6, Vector3(PI, 0, 0))
+			for si in 3:
+				mb.sphere(Vector3(-0.1 + si * 0.1, 0.55 - si * 0.12, 0.25 - si * 0.02), 0.025, GOLD)
+			mb.torus(Vector3(0.3, 1.62, 0.15), 0.05, 0.08, GOLD)
 		"cleric":
 			mb.cyl(Vector3(0, 0.55, 0), 0.16, 0.34, 1.1, Color(0.93, 0.92, 0.86), 10)
 			mb.cyl(Vector3(0, 0.4, 0), 0.25, 0.3, 0.12, tc, 10)
@@ -372,6 +414,9 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.torus(Vector3(0, 1.55, 0), 0.12, 0.17, Color(1.0, 0.95, 0.5, 0.3))
 			mb.box(Vector3(0.3, 0.9, 0.15), Vector3(0.05, 1.5, 0.05), GOLD.darkened(0.3))
 			mb.sphere(Vector3(0.3, 1.7, 0.15), 0.1, Color(0.8, 1.0, 0.7, 0.2))
+			mb.box(Vector3(0, 0.72, 0.19), Vector3(0.12, 0.5, 0.02), tc)
+			mb.box(Vector3(0, 0.82, 0.2), Vector3(0.05, 0.2, 0.02), GOLD)
+			mb.box(Vector3(0, 0.85, 0.2), Vector3(0.14, 0.05, 0.02), GOLD)
 		"catapult":
 			for sx in [-0.5, 0.5]:
 				mb.box(Vector3(sx, 0.45, 0), Vector3(0.14, 0.14, 1.8), WOOD)
@@ -387,6 +432,11 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.cyl(Vector3(0, 1.62, -0.72), 0.2, 0.15, 0.15, DWOOD, 8)
 			mb.box(Vector3(0.55, 1.7, 0.6), Vector3(0.03, 0.8, 0.03), WOOD)
 			mb.box(Vector3(0.55, 1.95, 0.75), Vector3(0.02, 0.25, 0.3), tc)
+			mb.sphere(Vector3(0, 1.75, -0.72), 0.13, STONE)
+			mb.box(Vector3(0, 0.72, 0.1), Vector3(0.9, 0.03, 0.03), Color(0.7, 0.6, 0.4), Vector3(0, 0, 0.3))
+			for sx in [-0.5, 0.5]:
+				mb.cyl(Vector3(sx * 1.31, 0.35, 0.6), 0.08, 0.08, 0.04, STEEL.darkened(0.3), 6, Vector3(0, 0, PI / 2))
+				mb.cyl(Vector3(sx * 1.31, 0.35, -0.6), 0.08, 0.08, 0.04, STEEL.darkened(0.3), 6, Vector3(0, 0, PI / 2))
 		"dragon":
 			var dc := tc.darkened(0.25)
 			mb.sphere(Vector3(0, 0, 0), 0.6, dc, Vector3(1.0, 0.85, 2.2), 10, 6)
@@ -418,6 +468,9 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.cone(Vector3(-0.09, 0.92, 0.5), 0.05, 0.14, wc, 4)
 			mb.box(Vector3(0, 0.6, -0.6), Vector3(0.08, 0.08, 0.45), wc, Vector3(0.5, 0, 0))
 			mb.sphere(Vector3(0.08, 0.78, 0.71), 0.03, Color(1.0, 0.3, 0.1, 0.1))
+			mb.sphere(Vector3(-0.08, 0.78, 0.71), 0.03, Color(1.0, 0.3, 0.1, 0.1))
+			mb.box(Vector3(0, 0.76, 0.3), Vector3(0.34, 0.22, 0.2), wc.lightened(0.15))
+			mb.box(Vector3(0, 0.6, 0.9), Vector3(0.06, 0.06, 0.05), Color(0.08, 0.08, 0.08))
 			mb.sphere(Vector3(-0.08, 0.78, 0.71), 0.03, Color(1.0, 0.3, 0.1, 0.1))
 		"troll":
 			var tcol := Color(0.42, 0.52, 0.4)
@@ -905,7 +958,15 @@ static func _build(mb: ModelBuilder, key: String, tc: Color, v: int) -> void:
 			mb.sphere(Vector3(0.4, 0.15, 0.2), 0.15, Color(0.9, 0.88, 0.8))
 		_:
 			mb.box(Vector3(0, 0.5, 0), Vector3(1, 1, 1), tc)
+	if EYES.has(key):
+		var e: Vector2 = EYES[key]
+		for ex in [-0.055, 0.055]:
+			mb.sphere(Vector3(ex, e.x, e.y), 0.022, Color(0.08, 0.06, 0.05), Vector3.ONE, 5, 3)
 
+
+## Eye height and depth for humanoid heads.
+const EYES := {"peasant": Vector2(1.22, 0.135), "peasant_b": Vector2(1.2, 0.135), "spearman": Vector2(1.22, 0.135),
+	"archer": Vector2(1.22, 0.135), "mage": Vector2(1.27, 0.135), "cleric": Vector2(1.26, 0.135)}
 
 const TIER_HEAD := {"swordsman": 1.28, "spearman": 1.38, "archer": 1.36, "knight": 2.0, "mage": 1.62, "cleric": 1.3}
 
@@ -939,8 +1000,14 @@ static func _plinth(mb: ModelBuilder, s: float) -> void:
 static func _legs(mb: ModelBuilder, c: Color, sc: float = 1.0) -> void:
 	mb.box(Vector3(-0.09 * sc, 0.28 * sc, 0), Vector3(0.13, 0.56, 0.14) * sc, c)
 	mb.box(Vector3(0.09 * sc, 0.28 * sc, 0), Vector3(0.13, 0.56, 0.14) * sc, c)
+	for bx in [-0.09, 0.09]:
+		mb.box(Vector3(bx * sc, 0.06 * sc, 0.02 * sc), Vector3(0.15, 0.12, 0.19) * sc, Color(0.22, 0.15, 0.1))
 
 
 static func _arms(mb: ModelBuilder, c: Color) -> void:
 	mb.box(Vector3(-0.26, 0.82, 0), Vector3(0.11, 0.44, 0.12), c)
 	mb.box(Vector3(0.26, 0.82, 0.06), Vector3(0.11, 0.44, 0.12), c, Vector3(-0.45, 0, 0))
+	mb.sphere(Vector3(-0.26, 0.58, 0), 0.06, SKIN, Vector3.ONE, 6, 4)
+	mb.sphere(Vector3(0.26, 0.62, 0.16), 0.06, SKIN, Vector3.ONE, 6, 4)
+	mb.sphere(Vector3(-0.26, 1.02, 0), 0.08, c.darkened(0.15), Vector3(1.1, 0.8, 1), 6, 4)
+	mb.sphere(Vector3(0.26, 1.02, 0), 0.08, c.darkened(0.15), Vector3(1.1, 0.8, 1), 6, 4)

@@ -32,6 +32,7 @@ var lunge := 0.0
 var moving := false
 var body: Node3D
 var mesh_i: MeshInstance3D
+var model_alt := randi() % 2
 var carry_i: MeshInstance3D
 var stuck_t := 0.0
 var last_p := Vector2.ZERO
@@ -84,7 +85,7 @@ func setup(g: Game, k: String, owner_id: int) -> void:
 	body.scale = Vector3.ONE * def.get("scale", 1.3)
 	add_child(body)
 	mesh_i = MeshInstance3D.new()
-	mesh_i.mesh = Models.mesh(def["model"], player().color, int(def.get("tier", 0)))
+	mesh_i.mesh = _model_mesh()
 	body.add_child(mesh_i)
 	if cls == "worker":
 		carry_i = MeshInstance3D.new()
@@ -313,7 +314,7 @@ func set_def(nd: Dictionary) -> void:
 	max_hp *= player().mods["hp_mult"]
 	hp = max_hp * frac
 	speed = def["speed"]
-	mesh_i.mesh = Models.mesh(def["model"], player().color, int(def.get("tier", 0)))
+	mesh_i.mesh = _model_mesh()
 
 
 ## Neutral freeblade waiting to be claimed by the first player who reaches it.
@@ -338,7 +339,7 @@ func change_owner(new_pid: int) -> void:
 		recruit_mark.queue_free()
 		recruit_mark = null
 	def = game.unit_def(pid, kind)
-	mesh_i.mesh = Models.mesh(def["model"], player().color, int(def.get("tier", 0)))
+	mesh_i.mesh = _model_mesh()
 	if ring:
 		ring.queue_free()
 		ring = null
@@ -878,3 +879,11 @@ func die(killer: Entity) -> void:
 	tw.tween_property(body, "rotation:x", -PI / 2, 0.4)
 	tw.tween_property(self, "position:y", position.y - 1.5, 2.0)
 	tw.tween_callback(queue_free)
+
+
+## Peasants pick one of two looks at spawn.
+func _model_mesh() -> Mesh:
+	var m: String = def["model"]
+	if m == "peasant" and model_alt == 1:
+		m = "peasant_b"
+	return Models.mesh(m, player().color, int(def.get("tier", 0)))
