@@ -306,7 +306,7 @@ static func cost_text(cost: Dictionary) -> String:
 
 # ---------------------------------------------------------------- champions
 # ---------------------------------------------------------------- factions
-const FACTION_ORDER := ["dawnspire", "thornveil", "ironhold", "starweave"]
+const FACTION_ORDER := ["dawnspire", "thornveil", "ironhold", "starweave", "duskmire"]
 const FACTIONS := {
 	"dawnspire": {"name": "Dawnspire Concord", "sigil": "Radiant Sun", "color": Color(1.0, 0.8, 0.3),
 		"perk": "Hallowed Bastions: buildings have +35% HP, towers +1 range, and all units slowly regenerate.",
@@ -320,6 +320,9 @@ const FACTIONS := {
 	"starweave": {"name": "Starweave Circle", "sigil": "Eight-Pointed Star", "color": Color(0.6, 0.7, 1.0),
 		"perk": "Ley Attunement: +35% mana gathering, +30% magic and healing, champion earns +40% XP.",
 		"blurb": "Astromancers who drink from the ley lines. Their magic and heroes grow fast."},
+	"duskmire": {"name": "Duskmire Covenant", "sigil": "Hunter's Moon", "color": Color(0.78, 0.45, 0.85),
+		"perk": "Night's Hunger: units have +10% HP and heal 25% of their max HP on every kill, +15% food gathering.",
+		"blurb": "Moon-bound hunters of the fen. Their warbands grow stronger the longer a fight lasts."},
 }
 
 const CHAMPION_ORDER := ["warlord", "archmage", "priestess"]

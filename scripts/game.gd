@@ -356,6 +356,9 @@ static func apply_faction(p: PlayerData) -> void:
 			m["siege_mult"] *= 1.3
 			m["gold"] += 0.1
 			m["speed_mult"] *= 0.95
+		"duskmire":
+			m["food"] += 0.15
+			m["hp_mult"] *= 1.1
 		"starweave":
 			m["mana"] += 0.35
 			m["magic"] += 0.3
@@ -1223,6 +1226,8 @@ func grant_xp(victim: Entity, killer: Entity) -> void:
 	else:
 		amount = 20.0 + victim.max_hp / 60.0
 	var kpid := killer.pid if killer != null and is_instance_valid(killer) else -1
+	if kpid > 0 and victim is Unit and killer is Unit and killer.alive and players[kpid].faction == "duskmire":
+		killer.hp = minf(killer.max_hp, killer.hp + killer.max_hp * 0.25)
 	for i in range(1, players.size()):
 		var c = players[i].champ
 		if c == null or not is_instance_valid(c) or not c.alive:
